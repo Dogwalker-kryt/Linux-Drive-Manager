@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the Info() function below
-// v0.9.08-86_experimental
+// v0.9.10-86_experimental
 
 // standard C++ libraries, I think
 #include <iostream>
@@ -61,7 +61,7 @@
 // ==================== global variables and definitions ====================
 
 // Version
-#define VERSION std::string("v0.9.08-86_experimental")
+#define VERSION std::string("v0.9.10-86_experimental")
 
 // TUI
 struct termios oldt; 
@@ -70,6 +70,7 @@ struct termios newt;
 // flags
 static bool g_dry_run = false;
 static bool g_no_color = false;
+static bool g_no_log = false;
 
 // Color
 namespace Color {
@@ -97,35 +98,94 @@ namespace Color {
 static std::string THEME_COLOR = RESET;
 static std::string SELECTION_COLOR = RESET;
 
+// ==================== Command Execution Abstraction ====================
+
+enum class ExecMode {
+    NORMAL,      // Regular execution
+    DRY_RUN,     // Show what would run
+    QUIET        // No output to console, only logging
+};
+
+// Using existing ExecResult from command_exec.h
+// Extended version with convenience members
+struct CmdExecResult {
+    bool success;
+    std::string output;
+    int exit_code;
+};
+
+class CmdExec {
+private:
+    static bool check_error(const std::string& output, const std::string& cmd) {
+        if (output.find("error") != std::string::npos || 
+            output.find("failed") != std::string::npos ||
+            output.find("ERROR") != std::string::npos) {
+            Logger::log("[EXEC] Command failed: " + cmd);
+            return false;
+        }
+        return true;
+    }
+
+public:
+    // Main command executor
+    static CmdExecResult run(const std::string& cmd, bool use_sudo = false, ExecMode mode = ExecMode::NORMAL) {
+        CmdExecResult result{false, "", -1};
+        
+        std::string final_cmd = cmd;
+        if (use_sudo) final_cmd = "sudo " + cmd;
+        
+        // Dry-run mode
+        if (g_dry_run || mode == ExecMode::DRY_RUN) {
+            std::cout << YELLOW << "[DRY-RUN] Would execute: " << final_cmd << RESET << "\n";
+            Logger::log("[DRY-RUN] " + final_cmd);
+            result.success = true;
+            return result;
+        }
+        
+        // Execute via existing terminal functions
+        result.output = Terminalexec::execTerminalv2(final_cmd.c_str());
+        result.success = check_error(result.output, cmd);
+        
+        if (mode == ExecMode::QUIET) {
+            // Don't print, only log
+            Logger::log("[EXEC] " + cmd + " -> " + (result.success ? "OK" : "FAILED"));
+        } else {
+            // Normal mode: print output
+            if (!result.output.empty()) std::cout << result.output << "\n";
+        }
+        
+        return result;
+    }
+    
+    // Convenience overloads
+    static CmdExecResult run_sudo(const std::string& cmd, ExecMode mode = ExecMode::NORMAL) {
+        return run(cmd, true, mode);
+    }
+    
+    static CmdExecResult run_quiet(const std::string& cmd, bool use_sudo = false) {
+        return run(cmd, use_sudo, ExecMode::QUIET);
+    }
+    
+    // Check and throw on failure
+    static CmdExecResult run_or_throw(const std::string& cmd, bool use_sudo = false) {
+        CmdExecResult res = run(cmd, use_sudo);
+        if (!res.success) {
+            throw std::runtime_error("Command failed: " + cmd + "\n" + res.output);
+        }
+        return res;
+    }
+};
+
+// Quick helpers for common patterns
+#define EXEC(cmd)              CmdExec::run(cmd)
+#define EXEC_SUDO(cmd)         CmdExec::run_sudo(cmd)
+#define EXEC_QUIET(cmd)        CmdExec::run_quiet(cmd, false)
+#define EXEC_QUIET_SUDO(cmd)   CmdExec::run_quiet(cmd, true)
+#define EXEC_OR_THROW(cmd)     CmdExec::run_or_throw(cmd)
+
 // ==================== Command Wrapper ====================
-// Wrapper helpers so the program can be run in a non-destructive "dry-run" mode
-
-static std::string runTerminal(const std::string &cmd) {
-    if (g_dry_run) {
-        std::cout << YELLOW << "[DRY-RUN] Would run: " << cmd << RESET << "\n";
-        Logger::log("[DRY-RUN] " + cmd);
-        return std::string();
-    }
-    return Terminalexec::execTerminal(cmd.c_str());
-}
-
-static std::string runTerminalV2(const std::string &cmd) {
-    if (g_dry_run) {
-        std::cout << YELLOW << "[DRY-RUN] Would run (v2): " << cmd << RESET << "\n";
-        Logger::log("[DRY-RUN] " + cmd);
-        return std::string();
-    }
-    return Terminalexec::execTerminalv2(cmd.c_str());
-}
-
-static std::string runTerminalV3(const std::string &cmd) {
-    if (g_dry_run) {
-        std::cout << YELLOW << "[DRY-RUN] Would run (v3): " << cmd << RESET << "\n";
-        Logger::log("[DRY-RUN] " + cmd);
-        return std::string();
-    }
-    return Terminalexec::execTerminalv3(cmd);
-}
+// Legacy wrappers - DEPRECATED, use CmdExec class and macros instead
+// Kept temporarily for backward compatibility
 
 // ==================== Side/Helper Functions ====================
 
@@ -234,30 +294,30 @@ void file_recovery_full(const std::string& drive, const std::string& signature_k
 
 std::string checkFilesystem(const std::string& device, const std::string& fstype) {
     if (fstype.empty()) return "Unknown filesystem";
-    std::string result;
 
     try {
         std::string cmd;
         if (fstype == "ext4" || fstype == "ext3" || fstype == "ext2") {
-            cmd = "e2fsck -n " + device + " 2>&1";
+            cmd = "e2fsck -n " + device;
         } else if (fstype == "ntfs") {
-            cmd = "ntfsfix --no-action " + device + " 2>&1";
+            cmd = "ntfsfix --no-action " + device;
         } else if (fstype == "vfat" || fstype == "fat32") {
-            cmd = "dosfsck -n " + device + " 2>&1";
+            cmd = "dosfsck -n " + device;
         }
-        if (!cmd.empty()) {
-            result = runTerminal(cmd);
+        
+        if (cmd.empty()) return "Unknown filesystem";
+        
+        auto result = EXEC_QUIET(cmd);
+        
+        if (result.output.find("clean") != std::string::npos || result.output.find("no errors") != std::string::npos) {
+            return "Clean";
+        } else if (!result.output.empty()) {
+            return "Issues found";
         }
+        return "Unknown state";
     } catch (const std::exception& e) {
         return "Check failed: " + std::string(e.what());
     }
-
-    if (result.find("clean") != std::string::npos || result.find("no errors") != std::string::npos) {
-        return "Clean";
-    } else if (!result.empty()) {
-        return "Issues found";
-    }
-    return "Unknown state";
 }
 
 // keeping as fall back if problems arise with the TUI drive selection
@@ -265,7 +325,7 @@ std::string checkFilesystem(const std::string& device, const std::string& fstype
 // // ListDrives
 // void listDrives(std::vector<std::string>& drives) {
 //     drives.clear();
-//     std::string lsblk = runTerminal("lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE -d -n -p");
+//     auto res = EXEC("lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE -d -n -p"); std::string lsblk = res.output;
 //     std::cout << "\nAvailable Drives:\n";
 //     std::cout << std::left 
 //               << std::setw(3) << "#" 
@@ -321,8 +381,9 @@ std::string listDrives(bool input_mode) {
     static std::vector<std::string> drives;
     drives.clear();
 
-    // Run lsblk
-    std::string lsblk = runTerminal("lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE -d -n -p");
+    // Run lsblk using new CmdExec
+    auto lsblk_res = EXEC_QUIET("lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE -d -n -p");
+    std::string lsblk = lsblk_res.output;
 
     // Print header
     std::cout << CYAN << "\nAvailable Drives:" << RESET << "\n";
@@ -491,8 +552,8 @@ class PartitionsUtils {
             try {
                 std::string resize_partition_cmd = "parted --script " + device + " resizepart 1 " + 
                                  std::to_string(newSizeMB) + "MB";
-                std::string resize_partition_cmd_output = runTerminal(resize_partition_cmd);
-                return resize_partition_cmd_output.find("error") == std::string::npos;
+                auto res = EXEC(resize_partition_cmd);
+                return res.success;
             } catch (const std::exception&) {
                 return false;
             }
@@ -504,8 +565,8 @@ class PartitionsUtils {
                 std::string move_partition_cmd = "parted --script " + device + " move " + 
                                  std::to_string(partNum) + " " + 
                                  std::to_string(startSectorMB) + "MB";
-                std::string move_partition_cmd_output = runTerminal(move_partition_cmd);
-                return move_partition_cmd_output.find("error") == std::string::npos;
+                auto res = EXEC_SUDO(move_partition_cmd);
+                return res.success;
             } catch (const std::exception&) {
                 return false;
             }
@@ -515,11 +576,11 @@ class PartitionsUtils {
         static bool changePartitionType(const std::string& device, int partNum, const std::string& newType) {
             try {
                 std::string backupCmd = "sfdisk -d " + device + " > " + device + "_backup.sf";
-                runTerminal(backupCmd);
+                EXEC_QUIET(backupCmd);
 
                 std::string change_partition_cmd = "echo 'type=" + newType + "' | sfdisk --part-type " + 
                                  device + " " + std::to_string(partNum);
-                std::string change_partition_cmd_output = runTerminal(change_partition_cmd);
+                auto res = EXEC(change_partition_cmd); std::string change_partition_cmd_output = res.output;
                 return change_partition_cmd_output.find("error") == std::string::npos;
             } catch (const std::exception&) {
                 return false;
@@ -533,7 +594,7 @@ void listpartisions() { //std::vector<std::string>& drive
 
     std::cout << "\nPartitions of drive " << drive_name << ":\n";
     std::string list_partitions_cmd = "lsblk --ascii -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE -n -p " + drive_name;
-    std::string list_partitions_cmd_output = runTerminal(list_partitions_cmd);
+    auto res = EXEC(list_partitions_cmd); std::string list_partitions_cmd_output = res.output;
     std::istringstream iss(list_partitions_cmd_output);
     std::string line;
     std::cout << std::left 
@@ -559,14 +620,13 @@ void listpartisions() { //std::vector<std::string>& drive
         std::cout << RED << "[INFO] No partitions found on this drive.\n" << RESET;
         return;
     }
-
-    std::cout << "\nPartition Management Options:\n";
-    std::cout << "-------------------------------\n";
-    std::cout << "1. Resize partition\n";
-    std::cout << "2. Move partition\n";
-    std::cout << "3. Change partition type\n";
-    std::cout << "4. Return to main menu\n";
-    std::cout << "------------------------------\n";
+    std::cout << "\n┌─ Partition Management Options ─┐\n";
+    std::cout << "├────────────────────────────────┤\n";
+    std::cout << "│ 1. Resize partition            │\n";
+    std::cout << "│ 2. Move partition              │\n";
+    std::cout << "│ 3. Change partition type       │\n";
+    std::cout << "│ 4. Return to main menu         │\n";
+    std::cout << "└────────────────────────────────┘\n";
     std::cout << "Enter your choice: ";
 
     int choice;
@@ -636,14 +696,14 @@ void listpartisions() { //std::vector<std::string>& drive
                 std::cout << "Invalid partition number!\n";
                 break;
             }
-
-            std::cout << "Available partition types:\n";
-            std::cout << "--------------------------\n";
-            std::cout << "1. Linux (83)\n";
-            std::cout << "2. NTFS (7)\n";
-            std::cout << "3. FAT32 (b)\n";
-            std::cout << "4. Linux swap (82)\n";
-            std::cout << "--------------------------\n";
+            std::cout << "┌───────────────────────────┐\n";
+            std::cout << "│ Available partition types │\n";
+            std::cout << "├───────────────────────────┤\n";
+            std::cout << "│ 1. Linux (83)             │\n";
+            std::cout << "│ 2. NTFS (7)               │\n";
+            std::cout << "│ 3. FAT32 (b)              │\n";
+            std::cout << "│ 4. Linux swap (82)        │\n";
+            std::cout << "└───────────────────────────┘\n";
             std::cout << "Enter type number: ";
             int typeNum;
             std::cin >> typeNum;
@@ -675,14 +735,15 @@ void listpartisions() { //std::vector<std::string>& drive
     }
 }
 
-// ==================== Disk Space Analysis ====================··−· 
+// ==================== Disk Space Analysis ====================··−·
+ 
 void analyDiskSpace() {
     //std::string drive_name = getAndValidateDriveName("Enter the Name of the Drive you want to analyze");
     std::string drive_name = listDrives(true); 
 
     std::cout  << CYAN << "\n------ Disk Information ------\n" << RESET;
     std::string analy_disk_space_cmd = "lsblk -b -o NAME,SIZE,TYPE,MOUNTPOINT -n -p " + drive_name;
-    std::string analy_disk_space_cmd_output = runTerminal(analy_disk_space_cmd);
+    auto res = EXEC(analy_disk_space_cmd); std::string analy_disk_space_cmd_output = res.output;
     std::istringstream iss(analy_disk_space_cmd_output);
     std::string line;
     bool found = false;
@@ -721,7 +782,7 @@ void analyDiskSpace() {
     } else {
         if (!mount_point.empty() && mount_point != "-") {
             std::string df_cmd = "df -h '" + mount_point + "' | tail -1";
-            std::string df_out = runTerminal(df_cmd);
+            auto res = EXEC(df_cmd); std::string df_out = res.output;
             std::istringstream dfiss(df_out);
             std::string filesystem, size, used, avail, usep, mnt;
             dfiss >> filesystem >> size >> used >> avail >> usep >> mnt;
@@ -736,23 +797,15 @@ void analyDiskSpace() {
 }
 
 
-// Dummy implementations for the other functions (to avoid linker errors)
-// Dont know if you need them anymore
-bool formatDrive(const std::string&, const std::string&, const std::string&) { return false; }
-bool encryptDrive(const std::string&, bool) { return false; }
-bool resizeDrive(const std::string&, int) { return false; }
-bool checkDriveHealth(const std::string&) { return false; }
-
-
 // ==================== Drive Formatting ====================
 
 void formatDrive() {
-    std::cout << "\nChoose an option for how to format:\n";
-    std::cout << "------------------\n";
-    std::cout << "1. Format drive\n";
-    std::cout << "2. Format drive with label\n";
-    std::cout << "3. Format drive with label and filesystem\n";
-    std::cout << "------------------\n";
+    std::cout << "\n┌────── Choose an option for how to format ──────┐\n";
+    std::cout << "├─────────────────────────────────────────────────┤\n";
+    std::cout << "│ 1. Format drive                                 │\n";
+    std::cout << "│ 2. Format drive with label                      │\n";
+    std::cout << "│ 3. Format drive with label and filesystem       │\n";
+    std::cout << "└─────────────────────────────────────────────────┘\n";
     int fdinput;
     std::cin >> fdinput;
     switch (fdinput) {
@@ -768,7 +821,7 @@ void formatDrive() {
                 if (confirmationfd == "y" || confirmationfd == "Y" ) {
                     std::cout << "Formatting drive: " << driveName << "...\n";
                     std::string cmd = "mkfs.ext4 " + driveName;
-                    std::string result = runTerminal(cmd);
+                    auto res = EXEC(cmd); std::string result = res.output;
                     if (result.find("error") != std::string::npos) {
                         Logger::log("[ERROR] Failed to format drive: " + driveName);
                         std::cerr << RED << "[Error] Failed to format drive: " << driveName << RESET << "\n";
@@ -808,7 +861,7 @@ void formatDrive() {
                 }
 
                 std::string execTerminalStr = ("mkfs.ext4 -L " + label + " " + driveName);
-                std::string execTerminal = runTerminal(execTerminalStr);
+                auto res = EXEC(execTerminalStr); std::string execTerminal = res.output;
                 if (execTerminal.find("error") != std::string::npos) {
                     std::cout << "[Error] Failed to format drive: " << driveName << "\n";
                     Logger::log("[ERROR] Failed to format drive: " + driveName);
@@ -838,7 +891,7 @@ void formatDrive() {
                 }
 
                 std::string execTerminalStr = ("mkfs." + fsType + " -L " + label + " " + driveName.c_str());
-                std::string execTerminal = runTerminal(execTerminalStr);
+                auto res = EXEC(execTerminalStr); std::string execTerminal = res.output;
                 if (execTerminal.find("error") != std::string::npos) {
                     std::cerr << RED << "[Error] Failed to format drive: " << driveName << RESET << "\n";
                     Logger::log("[ERROR] Failed to format drive: " + driveName);
@@ -866,7 +919,7 @@ int checkDriveHealth() {
 
     try {
         std::string check_drive_helth_cmd = "sudo smartctl -H " + driveHealth_name;
-    std::string check_drive_helth_cmd_output = runTerminal(check_drive_helth_cmd);
+    auto res = EXEC(check_drive_helth_cmd); std::string check_drive_helth_cmd_output = res.output;
         std::cout << check_drive_helth_cmd_output;
     }
     catch(const std::exception& e) {
@@ -896,7 +949,7 @@ void resizeDrive() {
 
     try {
         std::string resize_cmd = "sudo parted --script " + driveName +  " resizepart 1 " + std::to_string(new_size) + "GB";
-        std::string resize_output = runTerminal(resize_cmd);
+        auto res = EXEC(resize_cmd); std::string resize_output = res.output;
         std::cout << resize_output << "\n";
         if (resize_output.find("error") != std::string::npos) {
             std::cout << RED << "[Error] Failed to resize drive: " << driveName << "\n" << RESET;
@@ -1013,12 +1066,13 @@ class EnDecryptionUtils {
                << "--key-file " << tmpKeyFile << " open " << driveName
                << " encrypted_" << std::filesystem::path(driveName).filename().string();
             Logger::log("[INFO] Encrypting drive: " + driveName);
-                std::string output = runTerminal(ss.str());
+                auto res = EXEC_SUDO(ss.str());
+                std::string output = res.output;
 
             // remove temp key file
             unlink(tmpKeyFile.c_str());
 
-            if (output.find("Command failed") != std::string::npos || output.empty()) {
+            if (!res.success || output.empty()) {
                 std::cerr << RED << "[Error] Encryption failed: " << output << RESET << "\n";
                 Logger::log("[ERROR] Encryption failed for drive: " + driveName + " -> encryptDrive()");
                 return;
@@ -1055,12 +1109,13 @@ class EnDecryptionUtils {
             ss << "cryptsetup -v --cipher aes-cbc-essiv:sha256 --key-size 256 "
                << "--key-file " << tmpKeyFile << " open " << driveName << " decrypted_"
                << std::filesystem::path(driveName).filename().string();
-            std::string output = runTerminalV2(ss.str());
+            auto res = EXEC_SUDO(ss.str());
+            std::string output = res.output;
 
             // remove temp key file
             unlink(tmpKeyFile.c_str());
 
-            if (output.find("Command failed") != std::string::npos || output.empty()) {
+            if (!res.success || output.empty()) {
                 std::cerr << RED << "Decryption failed: " << output << RESET << "\n";
                 Logger::log("[ERROR] Decryption failed " + output + " -> decryptDrive()");
                 return;
@@ -1143,8 +1198,9 @@ private:
            << "--key-file <(echo -n '" << std::string((char*)info.key, 32) << "') "
            << "open " << driveName << " " << device_Name_Encrypt;
         
-        std::string output = runTerminal(ss.str());
-        if (output.find("Command failed") != std::string::npos) {
+        auto res = EXEC_SUDO(ss.str());
+        std::string output = res.output;
+        if (!res.success) {
             std::cerr << RED << "[Error] Failed to encrypt the drive: " << output << RESET << "\n";
             Logger::log("[ERROR] failed to encrypt the drive -> void EnDecrypt()");
         } else {
@@ -1198,8 +1254,9 @@ private:
            << "--key-file <(echo -n '" << std::string((char*)info.key, 32) << "') "
            << "open " << driveName << " " << deviceNameDecrypt << "_decrypted";
         
-        std::string output = runTerminal(ss.str());
-        if (output.find("Command failed") != std::string::npos) {
+        auto res = EXEC_SUDO(ss.str());
+        std::string output = res.output;
+        if (!res.success) {
             std::cerr << RED << "[Error] Failed to decrypt the drive: " << output << RESET << "\n";
             Logger::log("[ERROR] failed to decrypt the drive -> void EnDecrypt()");
             return;
@@ -1255,8 +1312,8 @@ void OverwriteDriveData() {
             std::cout << YELLOW << "Proceeding with Overwriting " << driveName << "...\n" << RESET;
 
             try {
-                    std::string devrandom = runTerminalV2("sudo dd if=/dev/urandom of=" + driveName + " bs=1M status=progress && sync");
-                    std::string devZero = runTerminalV2("sudo dd if=/dev/zero of=" + driveName + " bs=1M status=progress && sync");
+                    auto res_urandom = EXEC_SUDO("sudo dd if=/dev/urandom of=" + driveName + " bs=1M status=progress && sync"); std::string devrandom = res_urandom.output;
+                    auto res_zero = EXEC_SUDO("sudo dd if=/dev/zero of=" + driveName + " bs=1M status=progress && sync"); std::string devZero = res_zero.output;
                 
                 if (devZero.find("error") != std::string::npos && devrandom.find("error") != std::string::npos) {
                     Logger::log("[ERROR] failed to overwrite drive data\n");
@@ -1317,7 +1374,7 @@ private:
     static DriveMetadata getMetadata(const std::string& drive) {
         DriveMetadata metadata;
         std::string cmd = "lsblk -J -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINT,VENDOR,FSTYPE,UUID -p " + drive;
-        std::string json = runTerminalV3(cmd);
+        auto res = EXEC_QUIET(cmd); std::string json = res.output;
         size_t deviceStart = json.find("{", json.find("["));
         size_t childrenPos = json.find("\"children\"", deviceStart);
         std::string deviceBlock = json.substr(deviceStart, childrenPos - deviceStart);
@@ -1362,7 +1419,7 @@ private:
         if (metadata.type == "disk") {
             std::cout << "\n┌-─-─-─- SMART Data -─-─-─-─\n";
             std::string smartCmd = "sudo smartctl -i " + metadata.name;
-            std::string smartOutput = runTerminal(smartCmd);
+            auto res = EXEC(smartCmd); std::string smartOutput = res.output;
             if (!smartOutput.empty()) {
                 std::cout << smartOutput;
             } else {
@@ -1449,7 +1506,7 @@ private:
                 try {
                     std::cout << "Proceeding with burning " << isoPath << " to " << driveName << "...\n";
                     std::string bruncmd = "sudo dd if=" + isoPath + " of=" + driveName + " bs=4M status=progress && sync";
-                    std::string brunoutput = runTerminalV2(bruncmd);
+                    auto res = EXEC_SUDO(bruncmd); std::string brunoutput = res.output;
                     if (brunoutput.find("error") != std::string::npos) {
                         Logger::log("[ERROR] Failed to burn iso/img to drive: " + driveName + " -> BurnISOToStorageDevice()"); 
                         throw std::runtime_error("[Error] Failed to burn iso/img to drive: " + driveName);
@@ -1474,7 +1531,7 @@ private:
             std::string driveName = listDrives(true);
 
             std::string mountpoint = "sudo mount " + driveName + " /mnt/" + std::filesystem::path(driveName).filename().string();
-            std::string mountoutput = runTerminalV2(mountpoint);
+            auto res = EXEC_SUDO(mountpoint); std::string mountoutput = res.output;
             if (mountoutput.find("error") != std::string::npos) {
                 std::cout << "[Error] Failed to mount drive: " << mountoutput << "\n";
                 Logger::log("[ERROR] Failed to mount drive: " + driveName + " -> MountDrive()");
@@ -1493,7 +1550,7 @@ private:
             std::string driveName = listDrives(true );
 
             std::string unmountpoint = "sudo umount " + driveName;
-            std::string unmountoutput = runTerminalV2(unmountpoint);
+            auto res = EXEC_SUDO(unmountpoint); std::string unmountoutput = res.output;
             if (unmountoutput.find("error") != std::string::npos) {
                 std::cerr << RED << "[ERROR] Failed to unmount drive: " << unmountoutput << "\n";
                 Logger::log("[ERROR] Failed to unmount drive: " + driveName + " -> UnmountDrive()");
@@ -1507,13 +1564,7 @@ private:
     }
 
     static void Restore_USB_Drive() {
-        //std::string restore_device_name = getAndValidateDriveName("[Restore] Enter the name of a USB device you want to restore from an ISO");
         std::string restore_device_name = listDrives(true);
-        // if (std::find(drives.begin(), drives.end(), restore_device_name) == drives.end()) {
-        //     std::cout << "[Error] Drive " << restore_device_name << " not found!\n";
-        //     Logger::log("[ERROR] Drive " + restore_device_name + " not found -> Restore_USB_Drive()");
-        //     return;
-        // }
         try {
             std::cout << "Are you sure you want to overwrite/clean the ISO/Disk_Image from: " << restore_device_name << " ? [y/N]\n";
             char confirm = 'n';
@@ -1523,37 +1574,46 @@ private:
                 return;
             }
 
-            std::string unmount_cmd = "sudo umount " + restore_device_name + "* 2>/dev/null || true";
-            Terminalexec::execTerminalv2(unmount_cmd.c_str());
-            std::string wipefs_cmd = "sudo wipefs -a " + restore_device_name + " 2>&1";
-            std::string wipefs_out = Terminalexec::execTerminalv2(wipefs_cmd.c_str());
-            std::string dd_cmd = "sudo dd if=/dev/zero of=" + restore_device_name + " bs=1M count=10 status=progress && sudo sync";
-            std::string dd_out = Terminalexec::execTerminalv2(dd_cmd.c_str());
-
-            if (dd_out.find("error") != std::string::npos || dd_out.find("failed") != std::string::npos) {
-                Logger::log("[ERROR] Failed to overwrite the iso image on the usb -> Restore_USB_Drive()");
-                std::cerr << "[Error] Failed to overwrite device: " << restore_device_name << "\n";
+            // Unmount
+            EXEC_QUIET_SUDO("umount " + restore_device_name + "* 2>/dev/null || true");
+            
+            // Wipe filesystem
+            auto wipefs_res = EXEC_SUDO("wipefs -a " + restore_device_name);
+            if (!wipefs_res.success) {
+                std::cerr << RED << "[Error] Failed to wipe device: " << restore_device_name << RESET << "\n";
                 return;
             }
 
-            std::string parted_cmd = "sudo parted -s " + restore_device_name + " mklabel msdos mkpart primary 1MiB 100%";
-            
-            std::string parted_out = Terminalexec::execTerminalv2(parted_cmd.c_str());
+            // Zero out start
+            auto dd_res = EXEC_SUDO("dd if=/dev/zero of=" + restore_device_name + " bs=1M count=10 status=progress && sync");
+            if (!dd_res.success) {
+                Logger::log("[ERROR] Failed to overwrite the iso image on the usb -> Restore_USB_Drive()");
+                std::cerr << RED << "[Error] Failed to overwrite device: " << restore_device_name << RESET << "\n";
+                return;
+            }
 
-            std::string partprobe_cmd = "sudo partprobe " + restore_device_name + " 2>&1";
+            // Create partition table
+            auto parted_res = EXEC_SUDO("parted -s " + restore_device_name + " mklabel msdos mkpart primary 1MiB 100%");
+            if (!parted_res.success) {
+                Logger::log("[ERROR] Failed while restoring USB: " + restore_device_name);
+                std::cerr << RED << "[Error] Partition table creation failed.\n" << RESET;
+                return;
+            }
 
-            std::string partprobe_out = Terminalexec::execTerminalv2(partprobe_cmd.c_str());
+            // Probe partitions
+            auto partprobe_res = EXEC_SUDO("partprobe " + restore_device_name);
 
             std::string partition_path = restore_device_name;
-
-            if (!partition_path.empty() && std::isdigit(partition_path.back())) partition_path += "p1"; else partition_path += "1";
+            if (!partition_path.empty() && std::isdigit(partition_path.back())) 
+                partition_path += "p1"; 
+            else 
+                partition_path += "1";
             
-            std::string mkfs_cmd = "sudo mkfs.vfat -F32 " + partition_path + " 2>&1";
-            std::string mkfs_out = Terminalexec::execTerminalv2(mkfs_cmd.c_str());
-
-            if (parted_out.find("error") != std::string::npos || partprobe_out.find("error") != std::string::npos || mkfs_out.find("error") != std::string::npos) {
-                Logger::log("[ERROR] Failed while restoring USB: " + restore_device_name);
-                std::cerr << "[Error] One or more steps failed while restoring device. Check output.\n";
+            // Format as FAT32
+            auto mkfs_res = EXEC_SUDO("mkfs.vfat -F32 " + partition_path);
+            if (!mkfs_res.success) {
+                Logger::log("[ERROR] Failed while formatting USB: " + restore_device_name);
+                std::cerr << RED << "[Error] Filesystem creation failed.\n" << RESET;
                 return;
             }
 
@@ -1626,7 +1686,6 @@ private:
 
     static void CreateDiskImage() {
         try {
-            //std::string driveName = getAndValidateDriveName("[Drive_image_creation] Enter the NAME of a drive to create a disk image (e.g., /dev/sda):");
             std::string driveName = listDrives(true);
 
             std::cout << "Enter the path where the disk image should be saved (e.g., /path/to/image.img):\n";
@@ -1641,11 +1700,9 @@ private:
                 return;
             }
 
-            std::string cmd = "sudo dd if=" + driveName + " of=" + imagePath + " bs=4M status=progress && sync";
-            std::string output = Terminalexec::execTerminalv2(cmd.c_str());
-
-            if (output.find("error") != std::string::npos) {
-                std::cout << "[Error] Failed to create disk image: " << output << "\n";
+            auto res = EXEC_SUDO("dd if=" + driveName + " of=" + imagePath + " bs=4M status=progress && sync");
+            if (!res.success) {
+                std::cout << RED << "[Error] Failed to create disk image\n" << RESET;
                 Logger::log("[ERROR] Failed to create disk image for drive: " + driveName + " -> CreateDiskImage()");
                 return;
             }
@@ -1870,21 +1927,13 @@ private:
     }
 
     static void partitionrecovery() {
-        // ListDrives();
-        // std::cout << "\nEnter the name of the drive to analyse for partition recovery (e.g. /dev/sdb):\n";
-        // std::string device;
-        // std::cin >> device;
-        // checkDriveName(device);
-        //std::string device = getAndValidateDriveName("Enter the name of the drive to analyse for partition recovery (e.g. /dev/sdb):");
         std::string device = listDrives(true);
 
         std::cout << "\n--- Partition table (parted) ---\n";
-        std::string parted_out = Terminalexec::execTerminalv2(("sudo parted -s " + device + " print").c_str());
-        std::cout << parted_out << "\n";
-
+        auto parted_res = EXEC_SUDO("parted -s " + device + " print");
+        
         std::cout << "\n--- fdisk -l ---\n";
-        std::string fdisk_out = Terminalexec::execTerminalv2(("sudo fdisk -l " + device + " 2>/dev/null || true").c_str());
-        std::cout << fdisk_out << "\n";
+        auto fdisk_res = EXEC_SUDO("fdisk -l " + device + " 2>/dev/null || true");
 
         // Offer to dump partition table using sfdisk (non-destructive)
         std::cout << "Would you like to save a partition-table dump (recommended) to a file for possible restoration? (y/N): ";
@@ -1898,16 +1947,17 @@ private:
             // sanitize filename: replace '/' with '_'
             for (auto &c : dumpPath) if (c == '/') c = '_';
             dumpPath = "/tmp/" + dumpPath + "_sfdisk_dump.sfdisk";
-            std::string dump_cmd = "sudo sfdisk -d " + device + " > " + dumpPath + " 2>&1";
-            std::string dump_out = Terminalexec::execTerminalv2(dump_cmd.c_str());
+            
+            std::string dump_cmd = "sfdisk -d " + device + " > " + dumpPath + " 2>&1";
+            auto dump_res = EXEC_SUDO(dump_cmd);
 
-            // sfdisk -d writes to stdout redirected; if file was created, inform the user.
+            // Check if file was created
             std::ifstream fcheck(dumpPath);
             if (fcheck) {
                 std::cout << "Partition-table dump written to: " << dumpPath << "\n";
                 Logger::log("[INFO] Partition-table dump saved: " + dumpPath + " for device: " + device + " -> partitionrecovery()");
             } else {
-                std::cout << "[Warning] Could not write partition-table dump. Output:\n" << dump_out << "\n";
+                std::cout << "[Warning] Could not write partition-table dump.\n";
                 Logger::log("[WARN] Failed to write partition-table dump for device: " + device + " -> partitionrecovery()");
             }
         }
@@ -1917,8 +1967,8 @@ private:
         std::cout << " - 'testdisk' is interactive; run it manually if you want a guided recovery.\n";
 
         // Check for testdisk availability and offer to run guidance only
-        std::string which_testdisk = Terminalexec::execTerminalv2("which testdisk 2>/dev/null || true");
-        if (!which_testdisk.empty()) {
+        auto testdisk_res = EXEC_QUIET_SUDO("which testdisk 2>/dev/null || true");
+        if (!testdisk_res.output.empty()) {
             std::cout << "\nDetected 'testdisk' on the system. This is an interactive tool that can help recover partitions.\n";
             std::cout << "I will not run it automatically. To run it now, open a terminal and run: sudo testdisk " << device << "\n";
         } else {
@@ -1929,22 +1979,19 @@ private:
     }
     
     static void systemrecovery() {
-        //std::string device = getAndValidateDriveName("Enter the name of the drive containing the system to inspect (e.g. /dev/sda):");
         std::string device = listDrives(true);
 
         std::cout << "\nListing partitions and filesystems for " << device << "\n";
         std::string lsblk_cmd = "lsblk -o NAME,FSTYPE,SIZE,MOUNTPOINT,LABEL -p -n " + device;
-        std::string lsblk_out = Terminalexec::execTerminalv2(lsblk_cmd.c_str());
-        std::cout << lsblk_out << "\n";
+        auto lsblk_res = EXEC(lsblk_cmd);
+        
         std::cout << "\nProbing for possible boot partitions (EFI and Linux root candidates)...\n";
 
         // Find an EFI partition (vfat with esp flag) and a Linux root (ext4/xfs/btrfs)
-        std::string blkid_cmd = "sudo blkid -o export " + device + "* 2>/dev/null || true";
-        std::string blkid_out = Terminalexec::execTerminalv2(blkid_cmd.c_str());
+        auto blkid_res = EXEC_SUDO("blkid -o export " + device + "* 2>/dev/null || true");
 
         // Also show partition flags from parted
-        std::string parted_print = Terminalexec::execTerminalv2(("sudo parted -s " + device + " print").c_str());
-        std::cout << parted_print << "\n";
+        auto parted_res = EXEC_SUDO("parted -s " + device + " print");
 
         std::cout << "\nIf you want to attempt automatic repair of the bootloader, DriveMgr will prepare a script with suggested steps (it will not run it unless you explicitly allow execution).\n";
         // Build a suggested script (dry-run by default)
@@ -1974,7 +2021,7 @@ private:
         script << "echo 'Script created for guidance only. Do not run without verifying paths.'\n";
         script.close();
 
-        Terminalexec::execTerminalv2((std::string("chmod +x ") + scriptPath).c_str());
+        auto chmod_res = EXEC("chmod +x " + scriptPath);
 
         std::cout << "A helper script was created at: " << scriptPath << "\n";
         std::cout << "Open and inspect it. If you want DriveMgr to attempt to run the helper script now, type the exact phrase 'I UNDERSTAND' (all caps) to confirm: ";
@@ -1985,9 +2032,7 @@ private:
         if (confirmation == "I UNDERSTAND") {
             std::cout << "Running helper script (requires sudo). This is destructive if incorrect.\n";
             Logger::log("[WARN] User allowed DriveMgr to run system recovery helper script: " + scriptPath + " -> systemrecovery()");
-            std::string runcmd = std::string("sudo sh ") + scriptPath;
-            std::string runout = Terminalexec::execTerminalv2(runcmd.c_str());
-            std::cout << runout << "\n";
+            auto run_res = EXEC_SUDO("sh " + scriptPath);
             std::cout << "Helper script finished. Inspect system state manually.\n";
         } else {
             std::cout << "Not running the helper script. Inspect and run manually if desired: sudo sh " << scriptPath << "\n";
@@ -2134,13 +2179,12 @@ class Clone {
 
             } else if (confirmation == 'y' || confirmation == 'Y') {
                 try {
-                    std::string clone_cmd = "sudo dd if=" + source + " of=" + target + " bs=4M status=progress && sync";
-                    std::string clone_cmd_output = Terminalexec::execTerminalv2(clone_cmd.c_str());
-                    if (clone_cmd_output.find("error") != std::string::npos) {
+                    auto res = EXEC_SUDO("dd if=" + source + " of=" + target + " bs=4M status=progress && sync");
+                    if (!res.success) {
                         Logger::log("[ERROR] Failed to clone drive from " + source + " to " + target + " -> Clone::CloneDrive()");
-                        throw std::runtime_error(clone_cmd_output);
+                        throw std::runtime_error("Clone operation failed");
                     }
-                    std::cout << "[Success] Drive cloned from " << source << " to " << target << "\n";
+                    std::cout << GREEN << "[Success] Drive cloned from " << source << " to " << target << "\n" << RESET;
                     Logger::log("[INFO] Drive cloned successfully from " + source + " to " + target + " -> Clone::CloneDrive()");
                 
                 } catch (const std::exception& e) {
@@ -2245,6 +2289,7 @@ struct CONFIG_VALUES {
     std::string ROOT_MODE;
     std::string THEME_COLOR_MODE;
     std::string SELECTION_COLOR_MODE;
+    bool DRY_RUN_MODE;
 };
 
 CONFIG_VALUES config_handler() {
@@ -2287,6 +2332,12 @@ CONFIG_VALUES config_handler() {
         else if (key == "ROOT_MODE") cfg.ROOT_MODE = value;
         else if (key == "COLOR_THEME") cfg.THEME_COLOR_MODE = value;
         else if (key == "SELECTION_COLOR") cfg.SELECTION_COLOR_MODE = value;
+        else if (key == "DRY_RUN_MODE") {
+            std::string v = value;
+            std::transform(v.begin(), v.end(), v.begin(), ::tolower);
+            cfg.DRY_RUN_MODE = (v == "true");
+        }
+
     }
     return cfg;
 }
@@ -2365,7 +2416,7 @@ void Color_theme_handler() {
     size_t count = sizeof(avilable_colores) / sizeof(avilable_colores[0]);
 
     // color Theme handler
-    //THEME_COLOR = RESET;
+    THEME_COLOR = RESET;
 
     for (size_t i = 0; i < count; i++) {
         if (avilable_colores[i] == color_theme_name) {
@@ -2376,7 +2427,7 @@ void Color_theme_handler() {
 
 
     // Selection color handler
-    //SELECTION_COLOR = RESET;
+    SELECTION_COLOR = RESET;
 
     for (size_t i = 0; i < count; i++) {
         if (avilable_colores[i] == selection_theme_name) {
@@ -2386,6 +2437,35 @@ void Color_theme_handler() {
     }
 }
 
+// void Dry_run_helper(int argc, char* argv[]) {
+//     CONFIG_VALUES cfg = config_handler();
+//     bool dry_run_mode = cfg.DRY_RUN_MODE;
+
+//     if (dry_run_mode == true) {
+//         g_dry_run = true;
+//     }
+
+//     bool flag_dry_run = false;
+//     bool flag_dry_run_set = false;
+
+//     // parse command line args
+//     for (int i = 1; i < argc; i++) {
+//         std::string arg = argv[i];
+//         if (arg == "--dry-run" || arg == "-n") {
+//             flag_dry_run = true;
+//             flag_dry_run_set = true;
+//         }
+//     }
+
+//     if (flag_dry_run_set) {
+//         g_dry_run = true;
+
+//     }
+// }
+
+void Config_initilisator() {
+    
+}
 
 // ==================== Drive Benchmark Utility ====================
 
@@ -2590,9 +2670,17 @@ private:
     static DriveMetadata getMetadata(const std::string& drive) {
         DriveMetadata metadata;
         std::string cmd = "lsblk -J -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINT,VENDOR,FSTYPE,UUID -p " + drive;
-        std::string json = runTerminalV3(cmd);
+        auto res = EXEC_QUIET(cmd);
+        std::string json = res.output;
+        
         size_t deviceStart = json.find("{", json.find("["));
         size_t childrenPos = json.find("\"children\"", deviceStart);
+        
+        if (deviceStart == std::string::npos || childrenPos == std::string::npos) {
+            Logger::log("[WARN] Could not parse metadata JSON for drive: " + drive);
+            return metadata;
+        }
+        
         std::string deviceBlock = json.substr(deviceStart, childrenPos - deviceStart);
 
         auto extractValue = [&](const std::string& key, const std::string& from) -> std::string {
@@ -2801,6 +2889,11 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
+        if ( a == "--no-log" || a == "--no_log") {
+            g_no_log = true;
+            continue;
+        }
+
         if (a == "--help" || a == "-h") {
             printUsage(argv[0]);
             return 0;
@@ -2877,6 +2970,31 @@ int main(int argc, char* argv[]) {
         }
     }
     
+    // dry run helper
+    CONFIG_VALUES cfg = config_handler();
+    bool dry_run_mode = cfg.DRY_RUN_MODE;
+
+    if (dry_run_mode == true) {
+        g_dry_run = true;
+    }
+
+    bool flag_dry_run = false;
+    bool flag_dry_run_set = false;
+
+    // parse command line args
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];
+        if (arg == "--dry-run" || arg == "-n") {
+            flag_dry_run = true;
+            flag_dry_run_set = true;
+        }
+    }
+
+    if (flag_dry_run_set) {
+        g_dry_run = true;
+    } 
+
+    // TUI
     struct termios oldt, newt;
     tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
@@ -2885,7 +3003,7 @@ int main(int argc, char* argv[]) {
     bool running = true;
     while (running == true) {
         /* Original CLI menu (commented out so it's preserved for later):
-        std::string clear = runTerminal("clear");
+        auto res = EXEC("clear"); std::string clear = res.output;
         std::cout << clear;
             std::cout << "┌─────────────────────────────────────────────────┐\n";
             std::cout << "│              DRIVE MANAGEMENT UTILITY           │\n";
@@ -2931,7 +3049,7 @@ int main(int argc, char* argv[]) {
 
         int selected = 0;
         while (true) {
-            std::string clear = runTerminal("clear");
+            auto res = EXEC("clear"); std::string clear = res.output;
             std::cout << clear;
             std::cout << "Use Up/Down arrows and Enter to select an option.\n\n";
             std::cout << THEME_COLOR << "┌─────────────────────────────────────────────────┐\n" << RESET;
