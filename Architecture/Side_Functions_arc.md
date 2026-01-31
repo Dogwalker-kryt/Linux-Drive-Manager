@@ -100,7 +100,7 @@ Used by the TUI to highlight selected rows or apply themes.
 Can be modified by user settings or future theme modules.
 
 ------------------------------------------------------------
-# Terminal Execution Wrappers
+# Terminal Execution Wrappers [leagacy]
 
 These functions wrap system command execution and integrate:
 
