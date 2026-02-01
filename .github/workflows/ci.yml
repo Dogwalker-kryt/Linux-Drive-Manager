@@ -21,15 +21,7 @@ jobs:
           # Install useful build tools; tolerate failures to avoid hard fails
           sudo apt-get install -y build-essential libssl-dev pkg-config smartmontools shellcheck || true
 
-      - name: Build CLI - stable (if present)
-        run: |
-          if [ -f DriveMgr_CLI/src/DriveMgr_stable.cpp ]; then
-            echo "Compiling DriveMgr_stable..."
-            g++ DriveMgr_CLI/src/DriveMgr_stable.cpp -IDriveMgr_CLI/include -o DriveMgr_CLI/DriveMgr_stable -lssl -lcrypto || true
-            ls -la DriveMgr_CLI/DriveMgr_stable || true
-          else
-            echo "DriveMgr_stable.cpp not found — skipping stable build."
-          fi
+     
 
       - name: Build CLI - experimental (if present)
         run: |
