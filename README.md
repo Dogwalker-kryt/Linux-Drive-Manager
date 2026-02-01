@@ -46,7 +46,7 @@ A terminal-based drive management tool for Linux (Debian-based), written primari
 
 	-> _(not recommended to use!)_
   
-- **CLI** -> Main programm and getting TUI 	`use this`
+- **CLI** -> Main programm and getting TUI 	
 
 	-> _(use this)_
 
