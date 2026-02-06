@@ -246,11 +246,7 @@ Distributed under the [GPL-3.0 License](./LICENSE).
 
 ## Architecture
 
-This Project has a lot code that has many relation to many things inside the Program. 
-
-The Architecture folder will contain files with the Functionality and explantion and more information to the Code.
-
-Its intended to help you (if you want) to edit the Program to your expectations easier and with less bugs.
+deleting docs, due to radical changing in code base
 
 ---
 
