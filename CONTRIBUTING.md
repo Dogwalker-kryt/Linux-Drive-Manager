@@ -46,6 +46,15 @@ To contribute code:
 
 - Use **4 spaces or 1 tab** for indentation (just stay consistent)
 - Use **clear, descriptive names** for variables and functions (e.g if for a new funtion then write: newfunction_input_cmd)
+  
+     for Variables: snake_case
+  
+     for functions: camelCase
+  
+     for Classes/structs: PascalCase
+  
+     for Contants/macros: UPPER_SNAKE
+  
 - Comment your code **only when necessary** — keep comments helpful and to the point, dont over use then (e.g. 10line of comments for a single line of code)
 - Use C++ 17 or later 
 - Try to write self explaining, readable code
