@@ -22,8 +22,8 @@ A terminal-based drive management tool for Linux (Debian-based), written primari
 - Stable: `v0.8.88-08`  
   _(Stable version is functional but serves mostly as a safe baseline — the experimental version is recommended for more features)_
   
-- Experimental: `v0.9.11.91`  
-  _(New Fingerprinting and benchmakring functions. fingerprinting is working, while benchmakring is in development)_
+- Experimental: `v0.9.12.92`  
+  _(Refactored Overwriting and changes for readability for whole codebase were made)_
 
 **GUI (Not getting Updated anymore):**
 
