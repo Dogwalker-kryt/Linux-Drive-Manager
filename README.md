@@ -19,11 +19,8 @@ A terminal-based drive management tool for Linux (Debian-based), written primari
 
 **CLI:**
 
-- Stable: `v0.8.88-08`  
-  _(Stable version is functional but serves mostly as a safe baseline — the experimental version is recommended for more features)_
-  
-- Experimental: `v0.9.13.93`  
-  _(Refactored ISO burning)_
+- Experimental: `v0.9.14.93`  
+  _(debug_msg() func new; code redability made better)_
 
 **GUI (Not getting Updated anymore):**
 
