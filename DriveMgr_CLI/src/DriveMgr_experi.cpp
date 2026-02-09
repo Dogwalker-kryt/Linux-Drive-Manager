@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the Info() function below
-// v0.9.13.93_experimental
+// v0.9.14.93_experimental
 
 // standard C++ libraries, I think
 #include <iostream>
@@ -40,7 +40,8 @@
 #include <ctime>
 #include <random>
 #include <unordered_map>
-// system
+
+// system includes
 #include <sys/stat.h>
 #include <unistd.h>
 #include <pwd.h>
@@ -49,19 +50,21 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <libgen.h>
-// openssl
+
+// openssl includes
 #include <openssl/evp.h>
 #include <openssl/aes.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
-// custom .h
+// custom includes
 #include "../include/drivefunctions.h"
+#include "../include/debug.h"
 
 // │ ├ ┤ ┘ └ ┐ ┌ ─
 // ==================== global variables and definitions ====================
 
 // Version
-#define VERSION std::string("v0.9.13.93_experimental")
+#define VERSION std::string("v0.9.14.93_experimental")
 
 // TUI
 struct termios oldt; 
@@ -71,6 +74,7 @@ struct termios newt;
 static bool g_dry_run   =  false;
 static bool g_no_color  =  false;
        bool g_no_log    =  false;
+static bool g_debug     =  false;
 
 // Color
 namespace Color {
@@ -1435,21 +1439,27 @@ private:
         std::string cmd = "lsblk -J -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINT,VENDOR,FSTYPE,UUID -p " + drive;
 
         auto res = EXEC_QUIET(cmd); std::string json = res.output;
+
         size_t deviceStart = json.find("{", json.find("["));
         size_t childrenPos = json.find("\"children\"", deviceStart);
 
         std::string deviceBlock = json.substr(deviceStart, childrenPos - deviceStart);
 
         auto extractValue = [&](const std::string& key, const std::string& from) -> std::string {
+
             std::regex pattern("\"" + key + "\"\\s*:\\s*(null|\"(.*?)\")");
             std::smatch match;
             
             if (std::regex_search(from, match, pattern)) {
-                if (match[1] == "null")
+
+                if (match[1] == "null") {
                     return "";
-                else
+
+                } else {
                     return match[2].str();
+                }
             }
+
             return "";
         };
 
@@ -1462,6 +1472,7 @@ private:
         metadata.vendor     = extractValue("vendor", deviceBlock);
         metadata.fstype     = extractValue("fstype", deviceBlock);
         metadata.uuid       = extractValue("uuid", deviceBlock);
+
         return metadata;
     }
 
@@ -1479,14 +1490,17 @@ private:
 
         // SMART data
         if (metadata.type == "disk") {
+
             std::cout << "\n┌-─-─-─- SMART Data -─-─-─-─\n";
             std::string smartCmd = "sudo smartctl -i " + metadata.name;
             auto res = EXEC(smartCmd); std::string smartOutput = res.output;
 
             if (!smartOutput.empty()) {
                 std::cout << smartOutput;
+
             } else {
                 std::cout << "[ERROR] SMART data not available/intalled\n";
+
             }
         }   
 
@@ -1522,6 +1536,7 @@ public:
 
 
 // ==================== Mounting and Burning Utilities ====================
+// IsoFileMetadataChecker and IsoBurner refactored; v0.9.13.93
 
 class MountUtility {
 private:
@@ -1632,16 +1647,18 @@ private:
         try{
             std::string driveName = listDrives(true);
 
-            std::string mountpoint = "sudo mount " + driveName + " /mnt/" + std::filesystem::path(driveName).filename().string();
+            std::string mountpoint = "mount " + driveName + " /mnt/" + std::filesystem::path(driveName).filename().string();
             auto res = EXEC_SUDO(mountpoint); std::string mountoutput = res.output;
 
             if (mountoutput.find("error") != std::string::npos) {
+
                 std::cout << "[Error] Failed to mount drive: " << mountoutput << "\n";
                 Logger::log("[ERROR] Failed to mount drive: " + driveName + " -> MountDrive()", g_no_log);
                 return;
             }
 
         } catch (const std::exception& e) {
+
             std::cerr << RED << "[ERROR] Failed to initialize mount disk: " << e.what() << RESET << "\n";
             Logger::log("[ERROR] Failed to initialize mount disk: " + std::string(e.what()), g_no_log);
             return;
@@ -1652,10 +1669,11 @@ private:
         try {
             std::string driveName = listDrives(true );
 
-            std::string unmountpoint = "sudo umount " + driveName;
+            std::string unmountpoint = "umount " + driveName;
             auto res = EXEC_SUDO(unmountpoint); std::string unmountoutput = res.output;
 
             if (unmountoutput.find("error") != std::string::npos) {
+
                 std::cerr << RED << "[ERROR] Failed to unmount drive: " << unmountoutput << "\n";
                 Logger::log("[ERROR] Failed to unmount drive: " + driveName + " -> UnmountDrive()", g_no_log);
                 return;
@@ -1694,6 +1712,7 @@ private:
 
             // Zero out start
             auto dd_res = EXEC_SUDO("dd if=/dev/zero of=" + restore_device_name + " bs=1M count=10 status=progress && sync");
+
             if (!dd_res.success) {
                 Logger::log("[ERROR] Failed to overwrite the iso image on the usb -> Restore_USB_Drive()", g_no_log);
                 std::cerr << RED << "[Error] Failed to overwrite device: " << restore_device_name << RESET << "\n";
@@ -1702,6 +1721,7 @@ private:
 
             // Create partition table
             auto parted_res = EXEC_SUDO("parted -s " + restore_device_name + " mklabel msdos mkpart primary 1MiB 100%");
+
             if (!parted_res.success) {
                 Logger::log("[ERROR] Failed while restoring USB: " + restore_device_name, g_no_log);
                 std::cerr << RED << "[Error] Partition table creation failed.\n" << RESET;
@@ -1712,11 +1732,14 @@ private:
             auto partprobe_res = EXEC_SUDO("partprobe " + restore_device_name);
 
             std::string partition_path = restore_device_name;
-            if (!partition_path.empty() && std::isdigit(partition_path.back())) 
+
+            if (!partition_path.empty() && std::isdigit(partition_path.back())) {
                 partition_path += "p1"; 
-            else 
-                partition_path += "1";
             
+            } else { 
+                partition_path += "1";
+            }
+
             // Format as FAT32
             auto mkfs_res = EXEC_SUDO("mkfs.vfat -F32 " + partition_path);
 
@@ -1759,6 +1782,7 @@ public:
 
         int menuinputmount;
         std::cin >> menuinputmount;
+
         switch (menuinputmount) {
             case Burniso: {
                 BurnISOToStorageDevice();
@@ -2786,6 +2810,7 @@ void benchmarkMain() {
 
 
 // ==================== Drive Fingerprinting Utility ====================
+// v0.9.14.93; first func to recieve new debug_msg() for testing
 
 class DriveFingerprinting {
 private:
@@ -2802,14 +2827,20 @@ private:
 
         std::string cmd = "lsblk -J -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINT,VENDOR,FSTYPE,UUID -p " + drive;
 
+        // test
+        debug_msg("going to run lsblk cmd for metadata", g_debug);
+
         auto res = EXEC_QUIET(cmd);
         std::string json = res.output;
-        
+
+
         size_t deviceStart = json.find("{", json.find("["));
         size_t childrenPos = json.find("\"children\"", deviceStart);
         
         if (deviceStart == std::string::npos || childrenPos == std::string::npos) {
             Logger::log("[WARN] Could not parse metadata JSON for drive: " + drive, g_no_log);
+            // test 
+            debug_msg("couldnt parse metadata JSON", g_debug);
             return metadata;
         }
         
@@ -2844,6 +2875,9 @@ private:
 
         std::string fingerprint;
 
+        // test
+        debug_msg("going to generate fingerpint based on metadata", g_debug);
+
         for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
             char hex[3];
             snprintf(hex, sizeof(hex), "%02x", hash[i]);
@@ -2855,6 +2889,9 @@ private:
             std::cerr << RED << "[ERROR] Failed to generate fingerprint\n" << RESET << "\n";
             return "";
         }
+
+        // test
+        debug_msg(fingerprint, g_debug);
         return fingerprint;
     }
 
@@ -2892,10 +2929,10 @@ void Info() {
     std::cout << "│ Welcome to Drive Manager — a program for Linux to view and operate your storage devices.\n"; 
     std::cout << "│ Warning! You should know the basics about drives so you don't lose any data.\n";
     std::cout << "│ If you find problems or have ideas, visit the GitHub page and open an issue.\n";
-    std::cout << "│ Other info:\n";
-    std::cout << "│ Version: " << VERSION << "\n";
-    std::cout << "│ Github: https://github.com/Dogwalker-kryt/Drive-Manager-for-Linux\n";
-    std::cout << "│ Author: Dogwalker-kryt\n";
+    std::cout << "│ " << BOLD << "Other info:\n" << RESET;
+    std::cout << "│ Version: " << BOLD << VERSION << RESET << "\n";
+    std::cout << "│ Github: " << BOLD << "https://github.com/Dogwalker-kryt/Linux-Drive-Manager\n" << RESET;
+    std::cout << "│ Author: " << BOLD << "Dogwalker-kryt\n" << RESET;
     std::cout << "└───────────────────────────\n";
 }
 
@@ -2907,6 +2944,7 @@ static void printUsage(const char* progname) {
     std::cout << "  -n, --dry-run       Do not perform destructive operations\n";
     std::cout << "  -C, --no-color      Disable colors (may affect the main menu)\n";
     std::cout << "  --no-log            Disables all logging in the current session\n";
+    std::cout << "  --debug             Enables debug messages in current session\n";
     std::cout << "  --operation-name    Goes directly to a specific operation without menu\n";
     std::cout << "                      Available operations:\n";
     std::cout << "                        --list-drives\n";
@@ -3062,6 +3100,11 @@ int main(int argc, char* argv[]) {
 
         if (a == "--logs") {
             logViewer();
+            return 0;
+        }
+
+        if (a == "--debug") {
+            g_debug = true;
             return 0;
         }
 
