@@ -36,14 +36,32 @@
 #include <sys/time.h>
 #include "command_exec.h"
 
-#define RESET2   "\033[0m"      ///< ANSI escape: reset all formatting
-#define RED2     "\033[31m"     ///< ANSI escape: red text
-#define GREEN2   "\033[32m"     ///< ANSI escape: green text
-#define YELLOW2  "\033[33m"     ///< ANSI escape: yellow text
-#define BLUE2    "\033[34m"     ///< ANSI escape: blue text
-#define MAGENTA2 "\033[35m"     ///< ANSI escape: magenta text
-#define CYAN2    "\033[36m"     ///< ANSI escape: cyan text
-#define BOLD2    "\033[1m"      ///< ANSI escape: bold text
+extern bool g_no_color;
+extern bool g_dry_run;
+
+// Color
+namespace Color {
+    inline std::string reset()   { return g_no_color ? std::string() : "\033[0m"; }
+    inline std::string red()     { return g_no_color ? std::string() : "\033[31m"; }
+    inline std::string green()   { return g_no_color ? std::string() : "\033[32m"; }
+    inline std::string yellow()  { return g_no_color ? std::string() : "\033[33m"; }
+    inline std::string blue()    { return g_no_color ? std::string() : "\033[34m"; }
+    inline std::string magenta() { return g_no_color ? std::string() : "\033[35m"; }
+    inline std::string cyan()    { return g_no_color ? std::string() : "\033[36m"; }
+    inline std::string bold()    { return g_no_color ? std::string() : "\033[1m"; }
+    inline std::string inverse() { return g_no_color ? std::string() : "\033[7m"; }
+}
+
+// Color shortcuts
+#define RESET   Color::reset()
+#define RED     Color::red()
+#define GREEN   Color::green()
+#define YELLOW  Color::yellow()
+#define BLUE    Color::blue()
+#define MAGENTA Color::magenta()
+#define CYAN    Color::cyan()
+#define BOLD    Color::bold()
+#define INVERSE Color::inverse()
 
 /** 
  * @brief On/Off switch var for loggin
@@ -90,7 +108,7 @@ public:
             struct stat st;
             if (stat(logDir.c_str(), &st) != 0) {
                 if (mkdir(logDir.c_str(), 0755) != 0 && errno != EEXIST) {
-                    std::cerr << RED2 << "[Logger Error] Failed to create log directory: " << logDir 
+                    std::cerr << RED << "[Logger Error] Failed to create log directory: " << logDir 
                             << " Reason: " << strerror(errno) << "\n";
                     return;
                 }
@@ -101,8 +119,8 @@ public:
             if (logFile) {
                 logFile << logMsg << std::endl;
             } else {
-                std::cerr << RED2 << "[Logger Error] Unable to open log file: " << logPath
-                        << " Reason: " << strerror(errno) << RESET2 <<"\n";
+                std::cerr << RED << "[Logger Error] Unable to open log file: " << logPath
+                        << " Reason: " << strerror(errno) << RESET <<"\n";
             }
         } else {
             return;
@@ -110,6 +128,34 @@ public:
     }
 };
 
+
+// TUI and runtime error
+
+/**
+ * @brief VERY IMPORTANT FOR TUI TO FUNCTION (DONT DELETE)
+ */
+extern struct termios oldt, newt;
+
+/**
+ * @brief Handles std::runtime_error exceptions by printing the error message to the standard error stream.
+ * @param e The std::runtime_error exception to handle. (e.what() will be printed)
+ * @note This function is intended to be used as a centralized error handling mechanism for runtime errors in the DriveMgr_CLI project.
+ */
+void handle_STD_Runtime_Error(const std::runtime_error& e) {
+    std::cerr << "[RUNTIME_ERROR] " << e.what() << std::endl;
+}
+
+/**
+ * @brief A helper function to throw a std::runtime_error with a given error message.
+ *        This function also resets the terminal settings to ensure that the terminal is in a consistent state before throwing the error.
+ * @param error_message The error message to include in the std::runtime_error exception.
+ * @note This function should be used whenever a runtime error needs to be thrown, as it ensures that the terminal settings are properly reset before throwing the exception.
+ */
+void dmgr_runtime_error(const std::string& error_message) {
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    std::cout << "\033[?1049l";
+    throw std::runtime_error("[ERROR] " + error_message);
+}
 
 
 // Command executer
@@ -157,18 +203,6 @@ public:
         while (!r.stdout_str.empty() && (r.stdout_str.back() == '\n' || r.stdout_str.back() == '\r')) r.stdout_str.pop_back();
         return r.stdout_str;
     }
-};
-
-
-struct DriveInfo {
-    std::string device;         ///< Device path (e.g., /dev/sda)
-    std::string size;           ///< Drive size (e.g., "500GB")
-    std::string type;           ///< Drive type (SSD, HDD, USB, etc.)
-    std::string mountpoint;     ///< Current mount point, or empty if unmounted
-    std::string label;          ///< Partition/volume label
-    std::string fstype;         ///< Filesystem type (ext4, NTFS, FAT32, etc.)
-    bool isEncrypted;           ///< True if drive/partition is encrypted (LUKS)
-    bool hasErrors;             ///< True if filesystem errors detected
 };
 
 //recovery
