@@ -124,7 +124,6 @@ def install_Dmgr():
 
     files_to_copy = [
         ("DriveMgr_CLI", "bin/other_src"),
-        ("DriveMgr_TUI", "bin/other_src"),
         ("config.conf", "data"),
         ("launcher/launcher", "bin/launcher"),
         ("launcher/launcher.c", "bin/launcher"),
@@ -160,9 +159,10 @@ def install_Dmgr():
     auto_compiling = input().strip().lower()
     auto_compile = auto_compiling == "y"
 
-    print("Do you want the TUI or the CLI to be compiled or both? (t/c/a)")
-    tui_cli_or_all = input().strip().lower()
+    print("Do you want the CLI to be compiled? (y/n)")
+    cli_input = input().strip().lower()
     # TODO: implement actual compile logic here
+
 
     # After compile, ask about uninstalling deps
     pkg_manager = detect_package_manager()
@@ -171,24 +171,16 @@ def install_Dmgr():
             ask_uninstall(pkg_manager, pkg)
 
     if auto_compile:
-        if tui_cli_or_all == "a":
+        if cli_input == "y":
             cli_src = os.path.expanduser("~/.local/share/DriveMgr/bin/other_src/DriveMgr_CLI/src/DriveMgr_experi.cpp")
             cli_out = os.path.expanduser("~/.local/share/DriveMgr/bin/bin/DriveMgr_CLI")
-            tui_src = os.path.expanduser("~/.local/share/DriveMgr/bin/other_src/DriveMgr_TUI/src/DriveMgr_TUI.cpp")
-            tui_out = os.path.expanduser("~/.local/share/DriveMgr/bin/bin/DriveMgr_TUI")
 
             subprocess.run(["g++", "-std=c++17", cli_src, "-I..", "-o", cli_out, "-lssl", "-lcrypto"])
-            subprocess.run(["g++", "-std=c++17", tui_src, "-I..", "-o", tui_out, "-lssl", "-lcrypto"])
 
-        elif tui_cli_or_all == "c":
-            cli_src = os.path.expanduser("~/.local/share/DriveMgr/bin/other_src/DriveMgr_CLI/src/DriveMgr_experi.cpp")
-            cli_out = os.path.expanduser("~/.local/share/DriveMgr/bin/bin/DriveMgr_CLI")
-            subprocess.run(["g++", "-std=c++17", cli_src, "-I..", "-o", cli_out, "-lssl", "-lcrypto"])
-
-        elif tui_cli_or_all == "t":
-            tui_src = os.path.expanduser("~/.local/share/DriveMgr/bin/other_src/DriveMgr_TUI/src/DriveMgr_TUI.cpp")
-            tui_out = os.path.expanduser("~/.local/share/DriveMgr/bin/bin/DriveMgr_TUI")
-            subprocess.run(["g++", "-std=c++17", tui_src, "-I..", "-o", tui_out, "-lssl", "-lcrypto"])
+        elif cli_input == "n":
+            print("Skipping CLI compilation")
+        else:
+            print("Invalid input for CLI compilation, skipping...")
 
 
 def uninstall_Dmgr():
