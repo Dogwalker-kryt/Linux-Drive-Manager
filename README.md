@@ -28,18 +28,13 @@ A terminal-based drive management tool for Linux (Debian-based), written primari
 - C++ GUI: `v0.1.1-alpha`  
   _(GUI versions lag behind CLI/TUI)_
 
-**TUI (Experimental/In Progress):**
+**TUI:**
 
-- The TUI may be unstable depending on system and configuration.
-- TUI elements will be implmented in CLI version
+is basicly the CLI version
 
 **General Notes:**
 - Check for new releases regularly.
 - **GUI** -> discontiued
-
-	-> _(not recommended to use!)_
-  
-- **TUI** -> mixed with CLI
 
 	-> _(not recommended to use!)_
   
@@ -73,7 +68,6 @@ See [issues](https://github.com/Dogwalker-kryt/Drive-Manager-for-Linux/issues) a
     /include       - Headers (.h)
     /src           - Core sources
 /DriveMgr_GUI      - GUI version (Rust/C++)
-/DriveMgr_TUI      - TUI version (WIP)
 build_src.sh       - Build/install script
 bin/               - Built executables
 config.conf        - Example config
