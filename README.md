@@ -19,7 +19,7 @@ A terminal-based drive management tool for Linux (Debian-based), written primari
 
 **CLI:**
 
-- Experimental: `v0.9.18.25`  
+- Experimental: `v0.9.19.16`  
   _(code redability and refactored functions)_
 
 **GUI (Not getting Updated anymore):**
