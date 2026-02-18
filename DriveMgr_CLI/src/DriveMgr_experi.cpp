@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.18.25_experimental
+// v0.9.19.16_experimental
 
 // standard C++ libraries, I think
 #include <iostream>
@@ -61,12 +61,13 @@
 #include "../include/drivefunctions.h"
 #include "../include/debug.h"
 #include "../include/exec_cmd.h"
+#include "../include/dmgr_updater.h"
 
 // │ ├ ┤ ┘ └ ┐ ┌ ─
 // ==================== global variables and definitions ====================
 
 // Version
-#define VERSION std::string("v0.9.18.25_experimental")
+#define VERSION std::string("v0.9.19.16_experimental")
 
 // TUI
 struct termios oldt; 
@@ -1273,7 +1274,8 @@ private:
 
         std::string cmd = "lsblk -J -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINT,VENDOR,FSTYPE,UUID -p " + drive;
 
-        auto res = EXEC_QUIET(cmd); std::string json = res.output;
+        auto res = EXEC_QUIET(cmd); 
+        std::string json = res.output;
 
         size_t deviceStart = json.find("{", json.find("["));
         size_t childrenPos = json.find("\"children\"", deviceStart);
@@ -1311,6 +1313,17 @@ private:
         return metadata;
     }
 
+    static std::string removeFirstLines(const std::string& text, int n = 3) {
+        std::string out = text;
+        for (int i = 0; i < n; i++) {
+            size_t pos = out.find('\n');
+            if (pos == std::string::npos)
+                return out; // nothing left to remove
+            out.erase(0, pos + 1);
+        }
+        return out;
+    }
+
     static void displayMetadata(const DriveMetadata& metadata) {
         std::cout << "\n-------- Drive Metadata --------\n";
         std::cout << "| Name:       " << metadata.name << "\n";
@@ -1326,9 +1339,11 @@ private:
         // SMART data
         if (metadata.type == "disk") {
 
+
             std::cout << "\n┌-─-─-─- SMART Data -─-─-─-─\n";
-            std::string smartCmd = "sudo smartctl -i " + metadata.name;
-            auto res = EXEC(smartCmd); std::string smartOutput = res.output;
+            std::string smartCmd = "smartctl -i " + metadata.name;
+            auto res = EXEC_QUIET_SUDO(smartCmd); 
+            std::string smartOutput = removeFirstLines(res.output, 4);
 
             if (!smartOutput.empty()) {
                 std::cout << smartOutput;
@@ -1339,7 +1354,7 @@ private:
             }
         }   
 
-        std::cout << "└─  - -─ --- ─ - -─-  - ──- ──- ───────────────────\n";         
+        //std::cout << "└─  - -─ --- ─ - -─-  - ──- ──- ───────────────────\n";         
     } 
     
 public:
@@ -2029,11 +2044,11 @@ public:
         };
 
         std::cout << "\n┌─────── Forensic Analysis menu ────────┐\n";
-        std::cout << "│ 1. Info of the Analysis tool            │\n";
-        std::cout << "│ 2. Create a disk image of a drive       │\n";
-        std::cout << "│ 3. recover of system, files,..          │\n";                                                                                                                                                                                                                                                                                                                                                                                                        
-        std::cout << "│ 0. Exit                                 │\n";                                                                                                                                                                                                                                                                                                                                                                                               
-        std::cout << "└─────────────────────────────────────────┘\n";
+        std::cout << "│ 1. Info of the Analysis tool           │\n";
+        std::cout << "│ 2. Create a disk image of a drive      │\n";
+        std::cout << "│ 3. recover of system, files,..         │\n";                                                                                                                                                                                                                                                                                                                                                                                                        
+        std::cout << "│ 0. Exit                                │\n";                                                                                                                                                                                                                                                                                                                                                                                               
+        std::cout << "└────────────────────────────────────────┘\n";
         int forsensicmenuinput;
         std::cin >> forsensicmenuinput;
 
@@ -2335,21 +2350,30 @@ void configEditor() {
 }
 
 // if you add any colors then you must add them here!!! very important
-std::string avilable_colores[6] = { "RED", "GREEN", "YELLOW", "BLUE", "MAGENTA", "CYAN"};
-std::string color_codes[6] = {RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN};
+// so the arrays must be synced
+// std::string available_colores[6] = { "RED", "GREEN", "YELLOW", "BLUE", "MAGENTA", "CYAN"};
+// std::string color_codes[6] = {RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN};
+
+std::array<std::string, 6> available_colores = {
+    "RED", "GREEN", "YELLOW", "BLUE", "MAGENTA", "CYAN"
+};
+
+std::array<std::string, 6> color_codes = {
+    RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN
+};
 
 void colorThemeHandler() {
     CONFIG_VALUES cfg = configHandler();
     std::string color_theme_name = cfg.THEME_COLOR_MODE;
     std::string selection_theme_name = cfg.SELECTION_COLOR_MODE;
 
-    size_t count = sizeof(avilable_colores) / sizeof(avilable_colores[0]);
+    size_t count = sizeof(available_colores) / sizeof(available_colores[0]);
 
     // color Theme handler
     THEME_COLOR = RESET;
 
     for (size_t i = 0; i < count; i++) {
-        if (avilable_colores[i] == color_theme_name) {
+        if (available_colores[i] == color_theme_name) {
             THEME_COLOR = color_codes[i];
             break;
         }
@@ -2359,7 +2383,7 @@ void colorThemeHandler() {
     SELECTION_COLOR = RESET;
 
     for (size_t i = 0; i < count; i++) {
-        if (avilable_colores[i] == selection_theme_name) {
+        if (available_colores[i] == selection_theme_name) {
             SELECTION_COLOR = color_codes[i];
             break;
         }
@@ -2657,7 +2681,6 @@ public:
     }
 };
 
-
 // ==================== Main Menu and Utilities ====================
 
 void Info() {
@@ -2737,7 +2760,7 @@ enum MenuOptionsMain {
     EXITPROGRAM = 0,        LISTDRIVES = 1,         FORMATDRIVE = 2,        ENCRYPTDECRYPTDRIVE = 3,    RESIZEDRIVE = 4, 
     CHECKDRIVEHEALTH = 5,   ANALYZEDISKSPACE = 6,   OVERWRITEDRIVEDATA = 7, VIEWMETADATA = 8,           VIEWINFO = 9,
     MOUNTUNMOUNT = 10,      FORENSIC = 11,          LOGVIEW = 12,           CLONEDRIVE = 13,            CONFIG = 14, 
-    BENCHMAKR = 15,         FINGERPRINT = 16
+    BENCHMAKR = 15,         FINGERPRINT = 16,       UPDATER = 17
 };
 
 class QuickAccess {
@@ -2853,7 +2876,8 @@ int main(int argc, char* argv[]) {
             {7, "Overwrite Drive Data"},                    {8, "View Drive Metadata"},                         {9, "View Info/help"},
             {10, "Mount/Unmount/Restore (ISO/Drives/USB)"}, {11, "Forensic Analysis/Disk Image (experimental)"},
             {12, "Log viewer"},                             {13, "Clone a Drive"},                              {14, "Config Editor"}, 
-            {15, "Benchmark (experimental)"},               {16, "Fingerprint Drive"},                          {0, "Exit"}
+            {15, "Benchmark (experimental)"},               {16, "Fingerprint Drive"},                          {17, "Updater"},
+            {0, "Exit"}
         };
 
         // enable raw mode for single-key reading
@@ -2962,9 +2986,6 @@ int main(int argc, char* argv[]) {
             // 11. Forensics
             case FORENSIC:              { checkRoot(); ForensicAnalysis::mainForensic(); menuQues(running); break; }
 
-            // 0. Exit
-            case EXITPROGRAM:           { running = false; break; }
-
             // 12. Log viewer
             case LOGVIEW:               { logViewer(); menuQues(running); break; }
 
@@ -2979,6 +3000,12 @@ int main(int argc, char* argv[]) {
 
             // 16. Fingerprint Drive
             case FINGERPRINT:           { checkRootMetadata(); DriveFingerprinting::fingerprinting_main(); menuQues(running); break; }
+
+            // 17. Updater
+            case UPDATER:               { DmgrUpdater::updaterMain(VERSION); menuQues(running); break; }
+
+            // 0. Exit
+            case EXITPROGRAM:           { running = false; break; }
 
             default: {
                 std::cerr << RED << "[Error] Invalid selection\n" << RESET;
