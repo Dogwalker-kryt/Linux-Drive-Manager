@@ -212,14 +212,6 @@ For dangerous actions, an extra key (e.g., generated security key) is required a
 
 ---
 
-## Roadmap
-_What will be in future_
-- [ ] Experimental GUI/TUI modes
-- [ ] Forensics and better diskspace visualization
-- [x] Polishing dry run mode, CLI flags, refactoring
-
----
-
 ## License
 
 Distributed under the [GPL-3.0 License](./LICENSE).
