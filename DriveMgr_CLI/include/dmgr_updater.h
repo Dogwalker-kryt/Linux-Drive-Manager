@@ -1,3 +1,21 @@
+/* 
+ * DriveMgr - Linux Drive Management Utility
+ * Copyright (C) 2025 Dogwalker-kryt
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #ifndef DMGR_UPDATER
 #define DMGR_UPDATER
 
@@ -13,6 +31,7 @@ private:
      * @brief Internal struct to hold version components
      */
     struct Version_int {
+        int major_realease = 0;
         int major = 0;
         int minor = 0;
         int patch = 0;
@@ -30,9 +49,17 @@ private:
             ver_str.erase(0, 1);
         }
 
+        size_t dash_pos = ver_str.find('-');
+        if (dash_pos != std::string::npos) {
+            ver_str = ver_str.substr(0, dash_pos);
+        }
+
         std::stringstream ss(ver_str);
         char dot;
-        ss >> ver.major >> dot >> ver.minor >> dot >> ver.patch;
+        ss >> ver.major_realease >> dot
+            >> ver.major >> dot 
+            >> ver.minor >> dot 
+            >> ver.patch;
         return ver;
     }
 
@@ -42,6 +69,9 @@ private:
      * @param version_github the remote version on github
      */
     static int __comparing_versions(const Version_int &version_local, const Version_int &version_github) {
+        if (version_local.major_realease != version_github.major_realease) {
+            return (version_local.major_realease < version_github.major_realease) ? -1 : 1;
+        }
         if (version_local.major != version_github.major) {
             return (version_local.major < version_github.major) ? -1 : 1;
         }
@@ -83,6 +113,13 @@ public:
         std::cout << "Initializing Updater...\n";
         std::cout << YELLOW << "\n[INFO] " << RESET << "Make sure you are connected to the internet\n";
 
+        std::string dev_suffix;
+
+        if (LOCAL_VERSION.find("-dev") != std::string::npos) {
+            dev_suffix = "Local version contains " + BOLD + "'-dev'." + RESET + "Local version is a developer/custom/other release build\n";    
+        }
+
+
         Version_int local_version = DmgrUpdater().parseVersionVals(LOCAL_VERSION);
         std::string remote_version_str = getVersionGithub();
         Version_int remote_version = DmgrUpdater().parseVersionVals(remote_version_str);
@@ -93,6 +130,11 @@ public:
             std::cout << "\n[UPDATE] New version available: " << remote_version_str << "\n";
         } else if (cmp > 0) {
             std::cout << "\n[INFO] Local version is newer (probably dev build or custom build)\n";
+
+            if (!dev_suffix.empty()) {
+                std::cout << dev_suffix;
+            }
+
         } else {
             std::cout << "\n[INFO] You are up to date.\n";
         }
