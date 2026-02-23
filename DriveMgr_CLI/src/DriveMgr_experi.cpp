@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.19.19_dev
+// v0.9.19.19
 
 // C++ libraries
 #include <iostream>
@@ -67,7 +67,7 @@
 // ==================== global variables and definitions ====================
 
 // Version
-#define VERSION std::string("v0.9.19.19_dev")
+#define VERSION std::string("v0.9.19.19")
 
 // TUI
 struct termios oldt; 
