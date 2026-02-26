@@ -15,6 +15,31 @@ A terminal-based drive management tool for Linux (Debian-based), written primari
 
 ---
 
+## Why This Utility Exists
+
+Performing Disk operations on Linux often requires chaining multiple commands together, like lsblk, dd and more.
+
+A small mistake can lead to:
+- Data loss
+- System instability
+- Irreversible changes
+
+This tool exists to make those operations safer and reproducible.
+
+It provides:
+
+- Dry-run mode before execution
+- Explicit command preview in the source code
+- Input validation
+- Safety confirmations
+- Structured logging
+- TUI for controlled interaction
+
+The goal is not to replace underlying tools,
+but to add a safety and orchestration layer on top of them.
+
+---
+
 ## Version Control
 
 **CLI:**
