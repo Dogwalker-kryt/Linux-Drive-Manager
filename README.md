@@ -229,14 +229,6 @@ For dangerous actions, an extra key (e.g., generated security key) is required a
 
 ---
 
-## Quick Guide to Folders and Files
-
-- `DriveMgr_CLI/src/` and `include/` — the core CLI codebase.
-- `DriveMgr_GUI/` — incomplete experimental GUIs (Rust, C++).
-- `build_src.sh` — comprehensive setup/build script.
-
----
-
 ## License
 
 Distributed under the [GPL-3.0 License](./LICENSE).
