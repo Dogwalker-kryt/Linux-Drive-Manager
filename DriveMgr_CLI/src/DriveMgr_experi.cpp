@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.19.19
+// v0.9.19.24
 
 // C++ libraries
 #include <iostream>
@@ -67,7 +67,7 @@
 // ==================== global variables and definitions ====================
 
 // Version
-#define VERSION std::string("v0.9.19.19")
+#define VERSION std::string("v0.9.19.24")
 
 // TUI
 struct termios oldt; 
@@ -141,15 +141,16 @@ std::string listDrives(bool input_mode) {
 
     // Print header
     std::cout << CYAN << "\nAvailable Drives:" << RESET << "\n";
+
     std::cout << std::left
-              << std::setw(2) 
-              << std::setw(5)  << "#"
-              << BOLD << std::setw(18) << "Device"      << RESET
-              << BOLD << std::setw(10) << "Size"        << RESET
-              << BOLD << std::setw(10) << "Type"        << RESET
-              << BOLD << std::setw(15) << "Mountpoint"  << RESET
-              << BOLD << std::setw(10) << "FSType"      << RESET
-              << "Status" << std::endl;
+        << std::setw(2) 
+        << std::setw(5)  << "#"
+        << BOLD << std::setw(18) << "Device"      << RESET
+        << BOLD << std::setw(10) << "Size"        << RESET
+        << BOLD << std::setw(10) << "Type"        << RESET
+        << BOLD << std::setw(15) << "Mountpoint"  << RESET
+        << BOLD << std::setw(10) << "FSType"      << RESET
+        << "Status" << std::endl;
 
     std::cout << CYAN;
     std::cout << std::string(90, '-') << "\n" << RESET;
@@ -199,90 +200,91 @@ std::string listDrives(bool input_mode) {
     }
 
     if (drives.empty()) {
-        std::cerr << RED << "No drives found!\n" << RESET;
+        ERR(ErrorCode::DeviceNotFound, "No drives found");
+        Logger::log("[ERROR] No drives found", g_no_log);
         return "";
     }
 
     // TUI selection will stay here till i find a solution to put it in its own function
 
-    if (input_mode == true) {
-        // enable raw mode
-        struct termios oldt, newt;
-        tcgetattr(STDIN_FILENO, &oldt);
-        newt = oldt;
-        newt.c_lflag &= ~(ICANON | ECHO);
-        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-
-
-        // --- INLINE TUI SELECTION ---
-        int selected = 0;
-        int total = drives.size();
-
-        // Move cursor UP to the first drive row
-        std::cout << "\033[" << total << "A";
-
-        while (true) {
-            for (int i = 0; i < total; i++) {
-                std::cout << "\r"; // go to start of line
-
-                // Arrow indicator
-                if (i == selected) {
-                    std::cout << SELECTION_COLOR << "> " << RESET;
-                } else {
-                    std::cout << "  ";
-                }
-
-                // Highlight row
-                if (i == selected) std::cout << SELECTION_COLOR;
-
-                std::cout << std::left
-                        << std::setw(3)  << i
-                        << std::setw(18) << rows[i].device
-                        << std::setw(10) << rows[i].size
-                        << std::setw(10) << rows[i].type
-                        << std::setw(15) << rows[i].mount
-                        << std::setw(10) << rows[i].fstype
-                        << rows[i].status;
-
-                if (i == selected) std::cout << RESET;
-
-                std::cout << "\n"; 
-            }
-            // Move cursor back up
-            std::cout << "\033[" << total << "A";
-            
-            // Read key
-            char c;
-            if (read(STDIN_FILENO, &c, 1) <= 0) continue;
-
-            if (c == '\x1b') {
-                char seq[2];
-
-                if (read(STDIN_FILENO, &seq, 2) == 2) {
-                    if (seq[1] == 'A') selected = (selected - 1 + total) % total; // up
-                    if (seq[1] == 'B') selected = (selected + 1) % total;         // down
-                }
-
-            } else if (c == '\n' || c == '\r') {
-                break; // Enter
-            }
-        }
-
-        // Move cursor down past the table so next output prints normally
-        int tableheight = total + 3;
-        std::cout << "\033[" << tableheight << "B" << std::flush;
-        std::cout << "\n";
-
-        // restore terminal
-        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-
-        g_selected_drive = drives[selected];
-
-        return g_selected_drive;
-
-    } else {
+    if (input_mode != true) {
         return "";
     }
+
+    // enable raw mode
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+
+    // --- INLINE TUI SELECTION ---
+    int selected = 0;
+    int total = drives.size();
+
+    // Move cursor UP to the first drive row
+    std::cout << "\033[" << total << "A";
+
+    while (true) {
+        for (int i = 0; i < total; i++) {
+            std::cout << "\r"; // go to start of line
+
+            // Arrow indicator
+            if (i == selected) {
+                std::cout << SELECTION_COLOR << "> " << RESET;
+            } else {
+                std::cout << "  ";
+            }
+
+            // Highlight row
+            if (i == selected) std::cout << SELECTION_COLOR;
+
+            std::cout << std::left
+                << std::setw(3)  << i
+                << std::setw(18) << rows[i].device
+                << std::setw(10) << rows[i].size
+                << std::setw(10) << rows[i].type
+                << std::setw(15) << rows[i].mount
+                << std::setw(10) << rows[i].fstype
+                << rows[i].status;
+
+            if (i == selected) std::cout << RESET;
+
+            std::cout << "\n"; 
+        }
+
+        // Move cursor back up
+        std::cout << "\033[" << total << "A";
+            
+        // Read key
+        char c;
+        if (read(STDIN_FILENO, &c, 1) <= 0) continue;
+
+        if (c == '\x1b') {
+            char seq[2];
+
+            if (read(STDIN_FILENO, &seq, 2) == 2) {
+                if (seq[1] == 'A') selected = (selected - 1 + total) % total; // up
+                if (seq[1] == 'B') selected = (selected + 1) % total;         // down
+            }
+
+        } else if (c == '\n' || c == '\r') {
+            break; // Enter
+        }
+    }  
+
+    // Move cursor down past the table so next output prints normally
+    int tableheight = total + 3;
+    std::cout << "\033[" << tableheight << "B" << std::flush;
+    std::cout << "\n";
+
+    // restore terminal
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+
+    g_selected_drive = drives[selected];
+
+    return g_selected_drive;
 }
 
 
@@ -299,6 +301,8 @@ class PartitionsUtils {
                 return res.success;
 
             } catch (const std::exception&) {
+                ERR(ErrorCode::ProcessFailure, "Failed to resize partition");
+                Logger::log("[ERROR] Failed to resize partition -> PartitionUtils::resizePartition()", g_no_log);
                 return false;
             }
         }
@@ -312,6 +316,8 @@ class PartitionsUtils {
                 return res.success;
 
             } catch (const std::exception&) {
+                ERR(ErrorCode::ProcessFailure, "Failed to move partition");
+                Logger::log("[ERROR] Failed to move partition -> PartitionUtils::movePartition()", g_no_log);
                 return false;
             }
         }
@@ -329,6 +335,8 @@ class PartitionsUtils {
                 return output.find("error") == std::string::npos;
 
             } catch (const std::exception&) {
+                ERR(ErrorCode::ProcessFailure, "Failed to change partition type");
+                Logger::log("[ERROR] Failed to change partition type -> PartitionUtils::changePartitionType()", g_no_log);
                 return false;
             }
         }
@@ -390,7 +398,7 @@ void listpartisions() {
     }
 
     if (partitions.empty()) {
-        std::cout << RED << "[ERROR] No partitions found on this drive.\n" << RESET;
+        ERR(ErrorCode::DeviceNotFound, "No partitions found on this drive");
     }
 
     std::cout << "\n┌─ Partition Management Options ─┐\n";
@@ -411,7 +419,7 @@ void listpartisions() {
             int partNum;
             std::cin >> partNum;
             if (partNum < 1 || partNum > (int)partitions.size()) {
-                std::cout << "Invalid partition number!\n";
+                ERR(ErrorCode::OutOfRange, "Invalid partition number selected");
                 break;
             }
 
@@ -429,7 +437,7 @@ void listpartisions() {
                 std::cout << "Partition resized successfully!\n";
 
             } else {
-                std::cout << "Failed to resize partition!\n";
+                ERR(ErrorCode::ProcessFailure, "Failed to resize partition");
                 Logger::log("[ERROR] Failed to resize partition", g_no_log);
 
             }
@@ -442,7 +450,7 @@ void listpartisions() {
             std::cin >> partNum;
 
             if (partNum < 1 || partNum > (int)partitions.size()) {
-                std::cout << "Invalid partition number!\n";
+                ERR(ErrorCode::OutOfRange, "Invalid partition number selected");
                 break;
             }
 
@@ -450,7 +458,7 @@ void listpartisions() {
             uint64_t startPos;
             std::cin >> startPos;
             if (startPos < 0) {
-                std::cout << "Invalid start position!\n";
+                ERR(ErrorCode::OutOfRange, "Invalid start position entered");
                 break;
             }
 
@@ -460,7 +468,7 @@ void listpartisions() {
                 std::cout << "Partition moved successfully!\n";
 
             } else {
-                std::cout << "Failed to move partition!\n";
+                ERR(ErrorCode::ProcessFailure, "Failed to move partition -> movePartition()");
                 Logger::log("[ERROR] Failed to move partition", g_no_log);
 
             }
@@ -473,7 +481,7 @@ void listpartisions() {
             std::cin >> partNum;
 
             if (partNum < 1 || partNum > (int)partitions.size()) {
-                std::cout << "Invalid partition number!\n";
+                ERR(ErrorCode::OutOfRange, "Invalid partition number selected");
                 break;
             }
 
@@ -497,7 +505,7 @@ void listpartisions() {
                 case 3: newType = "b"; break;
                 case 4: newType = "82"; break;
                 default:
-                    std::cout << "Invalid type!\n";
+                    ERR(ErrorCode::OutOfRange, "Invalid partition type selected");
                     break;
             }
 
@@ -508,7 +516,7 @@ void listpartisions() {
                     std::cout << "Partition type changed successfully!\n";
 
                 } else {
-                    std::cout << "Failed to change partition type!\n";
+                    ERR(ErrorCode::ProcessFailure, "Failed to change partition type -> changePartitionType()");
                     Logger::log("[ERROR] Failed to change partition type", g_no_log);
 
                 }
@@ -519,7 +527,7 @@ void listpartisions() {
         case 4:
             return;
         default:
-            std::cout << "Invalid option!\n";
+            ERR(ErrorCode::OutOfRange, "Invalid option selected in partition menu");
     }
 }
 
@@ -581,7 +589,7 @@ void analyzeDiskSpace() {
     }
 
     if (!found) {
-        std::cout << "No disk info found!\n";
+        ERR(ErrorCode::DeviceNotFound, "No Disk found");
 
     } else {
 
@@ -623,7 +631,7 @@ private:
         std::getline(std::cin, confirmation);
         
         if (confirmation != "y" && confirmation != "Y") {
-            std::cerr << RED << "[INFO] " << RESET << "Formatting cancelled by user\n";
+            std::cout << RED << "[INFO] " << RESET << "Formatting cancelled by user\n";
             Logger::log("Formatting cancelled for drive: " + drive, g_no_log);
             return false;
         }
@@ -634,7 +642,7 @@ public:
     static void format_drive(const std::string& drive_to_format, const std::string& label = "", const std::string& fs_type = "ext4") {
         if (!label.empty() && label.length() > 0) {
             if (label.length() > 16) {
-                std::cerr << RED << "[ERROR] Label too long (max 16 chars)\n" << RESET;
+                ERR(ErrorCode::OutOfRange, "Label too long (max 16 chars) -> format_drive()");
                 return;
             }
         }
@@ -650,7 +658,7 @@ public:
             auto res = EXEC(cmd.str());
             
             if (!res.success) {
-                std::cerr << RED << "[ERROR] Failed to format drive: " << drive_to_format << "\n" << RESET;
+                ERR(ErrorCode::ProcessFailure, "Failed to format drive: " + drive_to_format + " -> format_drive()");
                 Logger::log("[ERROR] Format failed: " + drive_to_format, g_no_log);
                 return;
             }
@@ -660,7 +668,7 @@ public:
             Logger::log("[INFO] Drive formatted: " + drive_to_format, g_no_log);
             
         } catch(const std::exception& e) {
-            std::cerr << RED << "[ERROR] Exception: " << e.what() << "\n" << RESET;
+            ERR(ErrorCode::ProcessFailure, "Exception during formatting: " + std::string(e.what()) + " -> format_drive()");
             Logger::log("[ERROR] Format exception: " + std::string(e.what()), g_no_log);
         }
     }
@@ -728,7 +736,7 @@ void formatDrive() {
 
         default: {
 
-            std::cerr << RED << "[Error] Invalid option selected.\n" << RESET;
+            ERR(ErrorCode::OutOfRange, "Invalid formatting option selected -> formatDrive()");
             return;
 
         }
@@ -768,7 +776,7 @@ void resizeDrive() {
     std::cin >> new_size;
 
     if (new_size <= 0) {
-        std::cout << "[Error] Invalid size entered!\n";
+        ERR(ErrorCode::OutOfRange, "Invalid size entered -> resizeDrive()");
         return;
     }
 
@@ -781,7 +789,7 @@ void resizeDrive() {
 
         if (resize_output.find("error") != std::string::npos) {
 
-            std::cout << RED << "[Error] Failed to resize drive: " << driveName << "\n" << RESET;
+            ERR(ErrorCode::ProcessFailure, "Failed to resize drive: " + driveName + " -> resizeDrive()");
             Logger::log("[ERROR] Failed to resize drive: " + driveName + " -> resizeDrive()", g_no_log);
 
         } else {
@@ -793,7 +801,7 @@ void resizeDrive() {
 
     } catch (const std::exception& e) {
 
-        std::cerr << RED << "[ERROR] Exception during resize: " << e.what() << "\n" << RESET;
+        ERR(ErrorCode::ProcessFailure, "Exception during resize: " + std::string(e.what()) + " -> resizeDrive()");
         Logger::log("[ERROR] Exception during resize: " + std::string(e.what()) + " -> resizeDrive()", g_no_log);
     }
 }
@@ -823,8 +831,8 @@ class EnDecryptionUtils {
             std::ofstream file(KEY_STORAGE_PATH, std::ios::app | std::ios::binary);
 
             if (!file) {
-                std::cerr << "[Error] Cannot open key storage file\n";
                 Logger::log("[ERROR] Cannot open key storage file: " + KEY_STORAGE_PATH + " -> saveEncryptionInfo()", g_no_log);
+                ERR(ErrorCode::FileNotFound, "Cannot open key storage file: " + KEY_STORAGE_PATH + " -> saveEncryptionInfo()");
                 return;
             }
 
@@ -853,8 +861,8 @@ class EnDecryptionUtils {
             std::ifstream file(KEY_STORAGE_PATH, std::ios::binary);
 
             if (!file) {
-                std::cerr << RED << "[Error] Cannot open key storage file\n" << RESET;
                 Logger::log("[ERROR] Cannot open key storage file: " + KEY_STORAGE_PATH + " -> loadEncryptionInfo()", g_no_log);
+                ERR(ErrorCode::FileNotFound, "Cannot open key storage file: " + KEY_STORAGE_PATH + " -> loadEncryptionInfo()");
                 return false;
             }
 
@@ -896,8 +904,8 @@ class EnDecryptionUtils {
 
         static void generateKeyAndIV(unsigned char* key, unsigned char* iv) {
             if (!RAND_bytes(key, 32) || !RAND_bytes(iv, 16)) {
-                dmgr_runtime_error("[Error] Failed to generate random key/IV");
                 Logger::log("[ERROR] Failed to generate random key/IV for encryption -> generateKeyAndIV()", g_no_log);
+                dmgr_runtime_error("Failed to generate random key/IV");
             }
         }
 
@@ -923,9 +931,8 @@ class EnDecryptionUtils {
             unlink(tmp_key_file.c_str());
 
             if (!res.success || output.empty()) {
-                std::cerr << RED << "[Error] Encryption failed: " << output << RESET << "\n";
                 Logger::log("[ERROR] Encryption failed for drive: " + driveName + " -> encryptDrive()", g_no_log);
-                return;
+                dmgr_runtime_error("Encryption failed: " + output + " -> encryptDrive()");
             }
 
             std::cout << "Drive encrypted successfully. The decryption key is stored in " << KEY_STORAGE_PATH << "\n";
@@ -936,9 +943,8 @@ class EnDecryptionUtils {
             EncryptionInfo info;
 
             if (!loadEncryptionInfo(driveName, info)) {
-                std::cerr << RED << "[Error] No encryption key found for " << driveName << RESET << "\n";
                 Logger::log("[ERROR] No encryption key found for " + driveName + " -> decryptDrive()", g_no_log);
-                return;
+                dmgr_runtime_error("No encryption key found for drive: " + driveName);
             }
 
             std::string tmp_key_file = createSecureKeyFile(info.key);
@@ -956,9 +962,8 @@ class EnDecryptionUtils {
 
             if (!res.success || output.empty()) {
 
-                std::cerr << RED << "Decryption failed: " << output << RESET << "\n";
                 Logger::log("[ERROR] Decryption failed " + output + " -> decryptDrive()", g_no_log);
-                return;
+                dmgr_runtime_error("Decryption failed: " + output + " -> decryptDrive()");
             }
 
             std::cout << GREEN << "Drive decrypted successfully.\n" << RESET;
@@ -971,7 +976,7 @@ class EnDecryptionUtils {
 
             if (!RAND_bytes(salt.data(), length)) {
                 Logger::log("[ERROR] Failed to generate salt", g_no_log);
-                dmgr_runtime_error("[Error] Failed to generate salt");
+                dmgr_runtime_error("Failed to generate salt -> generateSalt()");
             }
 
             return salt;
@@ -1008,7 +1013,7 @@ private:
         std::cin >> input;
         
         if (input != key) {
-            std::cerr << RED << "[Error] Invalid confirmation key\n" << RESET;
+            ERR(ErrorCode::InvalidInput, "Invalid confirmation key");
             Logger::log("[ERROR] Invalid confirmation key", g_no_log);
             return false;
         }
@@ -1033,8 +1038,8 @@ private:
         info.driveName = drive_name;
         
         if (!RAND_bytes(info.key, 32) || !RAND_bytes(info.iv, 16)) {
-            std::cerr << RED << "[Error] Failed to generate encryption key\n" << RESET;
-            return;
+            Logger::log("[ERROR] Failed to generate encryption key/IV", g_no_log);
+            dmgr_runtime_error("Failed to generate encryption key/IV");
         }
         
         EnDecryptionUtils::loadEncryptionInfo(drive_name, info);
@@ -1051,8 +1056,8 @@ private:
         auto res = EXEC_SUDO(ss.str());
         
         if (!res.success) {
-            std::cerr << RED << "[Error] Encryption failed\n" << RESET;
             Logger::log("[ERROR] Encryption failed", g_no_log);
+            dmgr_runtime_error("Encryption failed");
         } else {
             std::cout << GREEN << "[Success] Drive encrypted as " << encrypted_name << RESET << "\n";
             std::cout << "[Info] Key saved in " << KEY_STORAGE_PATH << "\n";
@@ -1075,7 +1080,8 @@ private:
         
         EncryptionInfo info;
         if (!EnDecryptionUtils::loadEncryptionInfo(drive_name, info)) {
-            std::cerr << RED << "[Error] No encryption key found\n" << RESET;
+            ERR(ErrorCode::DataUnavailable, "No encryption key found for drive: " + drive_name);
+            Logger::log("[ERROR] No encryption key found for drive: " + drive_name, g_no_log);
             return;
         }
         
@@ -1091,8 +1097,8 @@ private:
         auto res = EXEC_SUDO(ss.str());
         
         if (!res.success) {
-            std::cerr << RED << "[Error] Decryption failed\n" << RESET;
             Logger::log("[ERROR] Decryption failed", g_no_log);
+            dmgr_runtime_error("Decryption failed");
         } else {
             std::cout << GREEN << "[Success] Drive decrypted\n" << RESET;
         }
@@ -1109,7 +1115,8 @@ public:
         } else if (choice == 'd' || choice == 'D') {
             decrypting();
         } else {
-            std::cerr << RED << "[ERROR] Invalid input\n" << RESET;
+            ERR(ErrorCode::OutOfRange, "Invalid char input");
+            Logger::log("[ERROR] Invalid input for encryption/decryption choice", g_no_log);
         }
     }
 };
@@ -1118,80 +1125,73 @@ public:
 // ==================== Drive Data Overwriting ====================
 // Tried my best to make this as safe and readable and maintainable as possible. v0.9.12.92
 
-void OverwriteDriveData() { 
+void overwriteDriveData() { 
     std::string drive = listDrives(true);
-    try {
-        std::cout << YELLOW << "[WARNING]" << RESET << " Are you sure you want to overwrite all data on " << BOLD << drive << RESET << "? This action cannot be undone! (y/n)\n";
+
+    std::cout << YELLOW << "[WARNING]" << RESET << " Are you sure you want to overwrite all data on " << BOLD << drive << RESET << "? This action cannot be undone! (y/n)\n";
         
-        char confirm;
-        std::cin >> confirm;
+    char confirm;
+    std::cin >> confirm;
 
-        if (confirm != 'y' && confirm != 'Y') {
+    if (confirm != 'y' && confirm != 'Y') {
 
-            std::cout << BOLD << "[Overwriting aborted]" << RESET << " The Overwriting process of " << drive << " was interupted by user\n";
-            Logger::log("[INFO] Overwriting process aborted by user for drive: " + drive, g_no_log);
-            return;
+        std::cout << BOLD << "[Overwriting aborted]" << RESET << " The Overwriting process of " << drive << " was interupted by user\n";
+        Logger::log("[INFO] Overwriting process aborted by user for drive: " + drive, g_no_log);
+        return;
 
-        }
+    }
 
-        std::cout << "\nTo be sure you want to overwrite the data on " << BOLD << drive << RESET << " you need to enter the following safety key\n";
+    std::cout << "\nTo be sure you want to overwrite the data on " << BOLD << drive << RESET << " you need to enter the following safety key\n";
 
-        std::string conf_key = confirmationKeyGenerator();
+    std::string conf_key = confirmationKeyGenerator();
 
-        Logger::log("[INFO] Confirmation key generated for overwriting drive: " + drive, g_no_log);
+    Logger::log("[INFO] Confirmation key generated for overwriting drive: " + drive, g_no_log);
 
-        std::cout << "\n" << conf_key << "\n";
+    std::cout << "\n" << conf_key << "\n";
 
-        std::cout << "\nEnter the confirmation key:\n";
+    std::cout << "\nEnter the confirmation key:\n";
 
-        std::string user_input;
-        std::cin >> user_input;
+    std::string user_input;
+    std::cin >> user_input;
 
-        if (user_input != conf_key) {
+    if (user_input != conf_key) {
 
-            std::cout << BOLD << "[INFO]" << RESET << " The confirmationkey was incorrect, the overwriting process has been interupted\n";
-            Logger::log("[INFO] Incorrect confirmation key entered, overwriting process aborted for drive: " + drive, g_no_log);
-            return;
+        std::cout << BOLD << "[INFO]" << RESET << " The confirmationkey was incorrect, the overwriting process has been interupted\n";
+        Logger::log("[INFO] Incorrect confirmation key entered, overwriting process aborted for drive: " + drive, g_no_log);
+        return;
 
-        }
+    }
 
-        std::cout << YELLOW << "\n[Process]" << RESET << " Proceeding with overwriting all data on: " << drive << "\n";
-        std::cout << " \n";
+    std::cout << YELLOW << "\n[Process]" << RESET << " Proceeding with overwriting all data on: " << drive << "\n";
+    std::cout << " \n";
 
-        try {
-            auto res_urandom = EXEC_SUDO("dd if=/dev/urandom of=" + drive + " bs=1M status=progress && sync"); 
-            auto res_zero = EXEC_SUDO("dd if=/dev/zero of=" + drive + " bs=1M status=progress && sync"); 
+    try {
+        auto res_urandom = EXEC_SUDO("dd if=/dev/urandom of=" + drive + " bs=1M status=progress && sync"); 
+        auto res_zero = EXEC_SUDO("dd if=/dev/zero of=" + drive + " bs=1M status=progress && sync"); 
             
-            if (!res_urandom.success && !res_zero.success) {
+        if (!res_urandom.success && !res_zero.success) {
 
-                std::cout << RED << "[ERROR] Failed to overwrite the drive: " << drive << "\n" << RESET;
-                Logger::log("[INFO] Overwriting failed to complete for drive: " + drive, g_no_log);
-                return;
-
-            } else if (!res_urandom.success || !res_zero.success) {
-
-                std::cout << YELLOW << "[Warning]" << RESET << " One of the overwriting operations failed, but the drive may have been partially overwritten. Please check the output and try again if necessary.\n";
-                Logger::log("[WARNING] One of the overwriting operations failed for drive: " + drive, g_no_log);
-                return;
-            } 
-
-            std::cout << GREEN << "[Success]" << RESET << " Overwriting completed successfully for drive: " << drive << "\n";
-            Logger::log("[INFO] Overwriting completed successfully for drive: " + drive, g_no_log);
+            ERR(ErrorCode::ProcessFailure, "Failed to overwrite the drive: " + drive);
+            Logger::log("[INFO] Overwriting failed to complete for drive: " + drive, g_no_log);
             return;
 
-        } catch (const std::exception& e) {
+        } else if (!res_urandom.success || !res_zero.success) {
 
-            Logger::log("[ERROR] Failed during overwriting process for drive: " + drive + " Reason: " + e.what(), g_no_log);
-            std::cerr << RED << "[ERROR] Failed during overwriting process: " << e.what() << RESET << "\n";
+            std::cout << YELLOW << "[Warning]" << RESET << " One of the overwriting operations failed, but the drive may have been partially overwritten. Please check the output and try again if necessary.\n";
+            Logger::log("[WARNING] One of the overwriting operations failed for drive: " + drive, g_no_log);
             return;
+        } 
 
-        }
+        std::cout << GREEN << "[Success]" << RESET << " Overwriting completed successfully for drive: " << drive << "\n";
+        Logger::log("[INFO] Overwriting completed successfully for drive: " + drive, g_no_log);
+        return;
 
     } catch (const std::exception& e) {
 
-        std::cerr << RED << "[ERROR] Failed to initialize Overwriting function: " << e.what() << RESET << "\n";
-        Logger::log("[ERROR] Failed to initialize Overwriting function: " + std::string(e.what()), g_no_log);
+        Logger::log("[ERROR] Failed during overwriting process for drive: " + drive + " Reason: " + e.what(), g_no_log);
+        ERR(ErrorCode::ProcessFailure, "Exception during overwriting process: " + std::string(e.what()));
         return;
+
     }
 }
 
@@ -1220,6 +1220,12 @@ private:
         auto res = EXEC_QUIET(cmd); 
         std::string json = res.output;
 
+        if (!res.success || json.empty()) {
+            ERR(ErrorCode::ProcessFailure, "Failed to execute lsblk for metadata retrieval");
+            Logger::log("[ERROR] Failed to execute lsblk for metadata retrieval -> getMetadata()", g_no_log);
+            return metadata;
+        }
+
         size_t deviceStart = json.find("{", json.find("["));
         size_t childrenPos = json.find("\"children\"", deviceStart);
 
@@ -1233,6 +1239,8 @@ private:
             if (std::regex_search(from, match, pattern)) {
 
                 if (match[1] == "null") {
+                    ERR(ErrorCode::DataUnavailable, "Value for " + key + " is null in lsblk output");
+                    Logger::log("[ERROR] Value for " + key + " is null in lsblk output -> getMetadata()", g_no_log);
                     return "";
 
                 } else {
@@ -1240,6 +1248,8 @@ private:
                 }
             }
 
+            ERR(ErrorCode::CorruptedData, "Failed to extract " + key + " from lsblk output");
+            Logger::log("[ERROR] Failed to extract " + key + " from lsblk output -> getMetadata()", g_no_log);
             return "";
         };
 
@@ -1260,8 +1270,10 @@ private:
         std::string out = text;
         for (int i = 0; i < n; i++) {
             size_t pos = out.find('\n');
+
             if (pos == std::string::npos)
                 return out; // nothing left to remove
+
             out.erase(0, pos + 1);
         }
         return out;
@@ -1269,34 +1281,44 @@ private:
 
     static void displayMetadata(const DriveMetadata& metadata) {
         std::cout << "\n-------- Drive Metadata --------\n";
-        std::cout << "| Name:       " << metadata.name << "\n";
-        std::cout << "| Size:       " << metadata.size << "\n";
-        std::cout << "| Model:      " << (metadata.model.empty() ? "N/A" : metadata.model) << "\n";
-        std::cout << "| Serial:     " << (metadata.serial.empty() ? "N/A" : metadata.serial) << "\n";
-        std::cout << "| Type:       " << metadata.type << "\n";
-        std::cout << "| Mountpoint: " << (metadata.mountpoint.empty() ? "Not mounted" : metadata.mountpoint) << "\n";
-        std::cout << "| Vendor:     " << (metadata.vendor.empty() ? "N/A" : metadata.vendor) << "\n";
-        std::cout << "| Filesystem: " << (metadata.fstype.empty() ? "N/A" : metadata.fstype) << "\n";
-        std::cout << "| UUID:       " << (metadata.uuid.empty() ? "N/A" : metadata.uuid) << "\n";
 
-        // SMART data
+        auto printAttr = [&](const std::string& attr, const std::string& value) {
+            std::cout << "| " << attr << ": " << (value.empty() ? "N/A" : value) << "\n";
+        };
+
+        printAttr("Name", metadata.name);
+        printAttr("Size", metadata.size);
+        printAttr("Model", metadata.model);
+        printAttr("Serial", metadata.serial);
+        printAttr("Type", metadata.type);
+        printAttr("Mountpoint", metadata.mountpoint.empty() ? "Not mounted" : metadata.mountpoint);
+        printAttr("Vendor", metadata.vendor);
+        printAttr("Filesystem", metadata.fstype);
+        printAttr("UUID", metadata.uuid);
+
         if (metadata.type == "disk") {
 
-
             std::cout << "\n┌-─-─-─- SMART Data -─-─-─-─\n";
+            
             std::string smartCmd = "smartctl -i " + metadata.name;
             auto res = EXEC_QUIET_SUDO(smartCmd); 
+
+            if (!res.success) {
+                ERR(ErrorCode::ProcessFailure, "Failed to retrieve SMART data for " + metadata.name);
+                Logger::log("[ERROR] Failed to retrieve SMART data for " + metadata.name + " -> displayMetadata()", g_no_log);
+                return;
+            }
+
             std::string smartOutput = removeFirstLines(res.output, 4);
 
             if (!smartOutput.empty()) {
                 std::cout << smartOutput;
 
             } else {
-                std::cout << "[ERROR] SMART data not available/intalled\n";
-
+                ERR(ErrorCode::CorruptedData, "Failed to retrieve SMART data for " + metadata.name);
+                Logger::log("[ERROR] Failed to retrieve SMART data for " + metadata.name + " -> displayMetadata()", g_no_log);
             }
         }   
-
         //std::cout << "└─  - -─ --- ─ - -─-  - ──- ──- ───────────────────\n";         
     } 
     
@@ -1313,7 +1335,7 @@ public:
 
             } catch (const std::exception& e) {
 
-                std::cout << RED << "[ERROR] Failed to read drive metadata: " << e.what() << RESET << "\n";
+                ERR(ErrorCode::ProcessFailure, "Failed to read drive metadata: " + std::string(e.what()));
                 Logger::log("[ERROR] Failed to read drive metadata: " + std::string(e.what()), g_no_log);
                 return;
 
@@ -1321,7 +1343,7 @@ public:
 
         } catch (const std::exception& e) {
 
-            std::cerr << RED << "[ERROR] Failed to initialize metadata reading" << RESET << "\n";
+            ERR(ErrorCode::ProcessFailure, "Failed to initialize metadata reading: " + std::string(e.what()));
             return;
         }
     }
@@ -1337,18 +1359,21 @@ private:
         namespace fs = std::filesystem;
 
         if (!fs::exists(iso_path) || !fs::is_regular_file(iso_path)) {
+            ERR(ErrorCode::FileNotFound, "ISO file does not exist: " + iso_path);
             Logger::log("[ERROR] ISO file does not exist: " + iso_path + " -> IsoFileMetadataChecker()", g_no_log);
             return false;
         }
 
         constexpr std::streamoff iso_magic_offset = 32769; // 16 * 2048 + 1
         if (fs::file_size(iso_path) < iso_magic_offset + 5) {
+            ERR(ErrorCode::InvalidInput, "ISO file too small to contain valid metadata: " + iso_path);
             Logger::log("[ERROR] ISO file too small to contain valid metadata: " + iso_path, g_no_log);
             return false;
         }
 
         std::ifstream iso_file(iso_path, std::ios::binary);
         if (!iso_file) {
+            ERR(ErrorCode::IOError, "Cannot open ISO file: " + iso_path);
             Logger::log("[ERROR] Cannot open ISO file: " + iso_path + " -> IsoFileMetadataChecker()", g_no_log);
             return false;
         }
@@ -1357,12 +1382,14 @@ private:
 
         char buffer[6] = {};
         if (!iso_file.read(buffer, 5)) {
+            ERR(ErrorCode::IOError, "Failed to read ISO metadata from file: " + iso_path);
             Logger::log("[ERROR] Failed to read ISO metadata: " + iso_path + " -> IsoFileMetadataChecker()", g_no_log);
             return false;
         }
 
         // ISO9660 magic signature
         if (std::string(buffer) != "CD001") {
+            ERR(ErrorCode::InvalidInput, "Invalid ISO signature in file: " + iso_path);
             Logger::log("[ERROR] Invalid ISO signature in file: " + iso_path + " -> IsoFileMetadataChecker()", g_no_log);
             return false;
         }
@@ -1380,13 +1407,13 @@ private:
             std::getline(std::cin >> std::ws, iso_path);
 
             if (size_t pos = iso_path.find_first_of("-'&|<>;\""); pos != std::string::npos) {
-                std::cerr << RED << "[ERROR] Invalid characters in drive name!: " << pos << RESET << "\n";
-                Logger::log("[ERROR] Invalid characters in drive name\n", g_no_log);
+                ERR(ErrorCode::InvalidInput, "Invalid characters in ISO path: " + iso_path);
+                Logger::log("[ERROR] Invalid characters in ISO path\n", g_no_log);
                 return;
             }
 
             if (!IsoFileMetadataChecker(iso_path)) {
-                std::cout << RED << "[ERROR] The provided file is not a valid ISO image: "  << iso_path << RESET << "\n";
+                ERR(ErrorCode::InvalidInput, "Invalid ISO file: " + iso_path);
                 Logger::log("[ERROR] Invalid ISO file: " + iso_path + " -> BurnISOToStorageDevice()", g_no_log);
                 return;
             }
@@ -1410,7 +1437,7 @@ private:
             std::cin >> user_key_input;
 
             if (user_key_input != confirmation_key) {
-                std::cout << RED << "[ERROR] Incorrect confirmation key.\n" << RESET;
+                ERR(ErrorCode::InvalidInput, "Incorrect confirmation key.");
                 Logger::log("[ERROR] Incorrect confirmation key -> BurnISOToStorageDevice()", g_no_log);
                 return;
             }
@@ -1421,7 +1448,7 @@ private:
             auto res = EXEC_SUDO("dd if=" + iso_path + " of=" + drive_name + " bs=4M status=progress && sync"); 
 
             if (!res.success) {
-                std::cout << RED << "[ERROR] Failed to burn ISO: " << res.output << RESET << "\n";
+                ERR(ErrorCode::ProcessFailure, "Failed to burn ISO: " + res.output);
                 Logger::log("[ERROR] dd burn failed for drive: " + drive_name + " -> BurnISOToStorageDevice()", g_no_log);
                 return;
             }
@@ -1432,7 +1459,7 @@ private:
 
         } catch (const std::exception& e) {
 
-            std::cout << RED << "[ERROR] Burn operation failed: " << e.what() << RESET << "\n";
+            ERR(ErrorCode::ProcessFailure, "Burn operation failed: " + std::string(e.what()));
             Logger::log("[ERROR] BurnISOToStorageDevice() exception: " + std::string(e.what()), g_no_log);
         }
     }
@@ -1454,7 +1481,7 @@ private:
             cmd = "umount " + drive_name;
 
         }  else {
-            std::cerr << RED << "[ERROR] Invalid action: " << mount_or_unmount << "\n" << RESET;
+            ERR(ErrorCode::InvalidInput, "Invalid mount/unmount action: " + mount_or_unmount);
             Logger::log("[ERROR] Invalid mount/unmount action: " + mount_or_unmount, g_no_log);
             return;
         }
@@ -1462,7 +1489,7 @@ private:
         auto res = EXEC_SUDO(cmd);
 
         if (!res.success) {
-            std::cerr << RED << "[ERROR] " << RESET << drive_name << " Failed to " << mount_or_unmount << "\n";
+            ERR(ErrorCode::ProcessFailure, "Failed to " + mount_or_unmount + " drive: " + drive_name);
             Logger::log("[ERROR] Failed to " + mount_or_unmount + " drive: " + drive_name + " -> choose_mount_unmount()", g_no_log);
             return;
         }
@@ -1477,7 +1504,7 @@ private:
             std::cin >> confirm;
 
             if (std::tolower(confirm) != 'y') {
-                std::cout << "Restore process aborted\n";
+                std::cout << "[INFO] Restore process aborted\n";
                 return;
             }
 
@@ -1485,7 +1512,7 @@ private:
             
             auto wipefs_res = EXEC_SUDO("wipefs -a " + restore_device_name);
             if (!wipefs_res.success) {
-                std::cerr << RED << "[Error] Failed to wipe device: " << restore_device_name << RESET << "\n";
+                ERR(ErrorCode::ProcessFailure, "Failed to wipe device: " + restore_device_name);
                 return;
             }
 
@@ -1494,7 +1521,7 @@ private:
 
             if (!dd_res.success) {
                 Logger::log("[ERROR] Failed to overwrite the iso image on the usb -> Restore_USB_Drive()", g_no_log);
-                std::cerr << RED << "[Error] Failed to overwrite device: " << restore_device_name << RESET << "\n";
+                ERR(ErrorCode::ProcessFailure, "Failed to overwrite device: " + restore_device_name);
                 return;
             }
 
@@ -1503,7 +1530,7 @@ private:
 
             if (!parted_res.success) {
                 Logger::log("[ERROR] Failed while restoring USB: " + restore_device_name, g_no_log);
-                std::cerr << RED << "[Error] Partition table creation failed.\n" << RESET;
+                ERR(ErrorCode::ProcessFailure, "Failed to create partition table on USB device: " + restore_device_name);
                 return;
             }
 
@@ -1524,7 +1551,7 @@ private:
 
             if (!mkfs_res.success) {
                 Logger::log("[ERROR] Failed while formatting USB: " + restore_device_name, g_no_log);
-                std::cerr << RED << "[Error] Filesystem creation failed.\n" << RESET;
+                ERR(ErrorCode::ProcessFailure, "Failed to format USB device with FS: " + restore_device_name);
                 return;
             }
 
@@ -1534,7 +1561,7 @@ private:
 
         } catch (const std::exception& e) {
 
-            std::cerr << RED << "[ERROR] Failed to initialize usb restore function: " << e.what() << RESET << "\n";
+            ERR(ErrorCode::ProcessFailure, "Failed to initialize usb restore function: " + std::string(e.what()));
             Logger::log("[ERROR] failed to initialize restore usb function", g_no_log);
             return;
         }
@@ -1556,11 +1583,25 @@ public:
         std::cout << "│2. Mount storage device             │\n";
         std::cout << "│3. Unmount storage device           │\n";
         std::cout << "│4. Restore usb from iso             │\n";
-        std::cout << "│0. Rreturn to main menu             │\n";
+        std::cout << "│0. Return to main menu              │\n";
         std::cout << "└────────────────────────────────────┘\n";
 
+        #define MAX_OPTION 4
+
         int menuinputmount;
-        std::cin >> menuinputmount;
+
+        if (!(std::cin >> menuinputmount)) {
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+            ERR(ErrorCode::InvalidInput, "Invalid input. Please enter a number.");
+            return;
+        }
+
+        if (menuinputmount < 0 || menuinputmount > MAX_OPTION) {
+            ERR(ErrorCode::OutOfRange, "Selection out out of range");
+            return;
+        }
 
         switch (menuinputmount) {
             case Burniso: {
@@ -1588,7 +1629,7 @@ public:
             }
 
             default: {
-                std::cout << "[Error] Invalid selection\n";
+                ERR(ErrorCode::OutOfRange, "Invalid menu option selected");
                 return;
             }
         }
@@ -1623,7 +1664,7 @@ private:
 
             auto res = EXEC_SUDO("dd if=" + driveName + " of=" + imagePath + " bs=4M status=progress && sync");
             if (!res.success) {
-                std::cout << RED << "[Error] Failed to create disk image\n" << RESET;
+                ERR(ErrorCode::ProcessFailure, "Failed to create disk image");
                 Logger::log("[ERROR] Failed to create disk image for drive: " + driveName + " -> CreateDiskImage()", g_no_log);
                 return;
             }
@@ -1632,7 +1673,7 @@ private:
             Logger::log("[INFO] Disk image created successfully for drive: " + driveName + " -> CreateDiskImage()", g_no_log);
        
         } catch (const std::exception& e) {
-            std::cerr << RED << "[ERROR] Failed to create Disk image: " << e.what() << RESET << "\n";
+            ERR(ErrorCode::ProcessFailure, "Failed to create Disk image: " + std::string(e.what()));
             Logger::log("[ERROR] Failed to create disk image: " + std::string(e.what()), g_no_log);
             return;
         }
@@ -1644,6 +1685,7 @@ private:
         std::cout << "1. files recovery\n";
         std::cout << "2. partition recovery\n";
         std::cout << "3. system recovery\n";
+        std::cout << "0. Return to main menu\n";
         std::cout << "--------------------------------\n";
         std::cout << "Enter your choice:\n"; 
         int scanDriverecover;
@@ -1665,8 +1707,12 @@ private:
                 break;
             }
 
+            case 0: {
+                return;
+            }
+
             default: {
-                std::cout << "[Error] invalid input\n";  
+                ERR(ErrorCode::OutOfRange, "Invalid recovery option selected");  
                 break;     
             }  
         }   
@@ -1686,7 +1732,7 @@ private:
         size_t sig_idx = SIZE_MAX;
 
         for (size_t i = 0; i < signature_names.size(); ++i) if (signature_names[i] == sig_in) { sig_idx = i; break; }
-        if (sig_idx == SIZE_MAX) { std::cout << "[Error] Unsupported signature\n"; return; }
+        if (sig_idx == SIZE_MAX) { ERR(ErrorCode::InvalidInput, "Unsupported signature: " + sig_in); return; }
 
         std::cout << "Scan depth: 1=quick 2=full\n";
 
@@ -1695,7 +1741,7 @@ private:
 
         if (depth == 1) file_recovery_quick(device, (int)sig_idx);
         else if (depth == 2) file_recovery_full(device, (int)sig_idx);
-        else std::cout << "[Error] Invalid depth\n";
+        else ERR(ErrorCode::InvalidInput, "Invalid scan depth");
     }
 
     static void file_recovery_quick(const std::string& drive, int signature_type) {
@@ -1708,7 +1754,7 @@ private:
         };
 
         if (signature_type < 0 || static_cast<size_t>(signature_type) >= signature_names.size()) {
-            std::cout << "[Error] Invalid signature type index.\n";
+            ERR(ErrorCode::InvalidInput, "Invalid signature type index: " + std::to_string(signature_type));
             return;
         }
 
@@ -1722,7 +1768,7 @@ private:
             std::ifstream disk(drive, std::ios::binary);
 
             if (!disk.is_open()) {
-                std::cerr << "[Error] Cannot open drive/image: " << drive << "\n";
+                ERR(ErrorCode::DeviceNotFound, "Cannot open drive/image: " + drive);
                 return;
             }
 
@@ -1778,7 +1824,7 @@ private:
 
             auto it = signatures.find(key);
             if (it == signatures.end()) {
-                std::cout << "[Error] Signature not found: " << key << "\n";
+                ERR(ErrorCode::InvalidInput, "Signature not found: " + key);
                 return;
             }
             scan_signature(it->second, 1024);
@@ -1794,7 +1840,7 @@ private:
         };
 
         if (signature_type < 0 || static_cast<size_t>(signature_type) >= signature_names.size()) {
-            std::cout << "[Error] Invalid signature type index.\n";
+            ERR(ErrorCode::InvalidInput, "Invalid signature type index: " + std::to_string(signature_type));
             return;
         }
 
@@ -1806,7 +1852,7 @@ private:
             std::ifstream disk(drive, std::ios::binary);
 
             if (!disk.is_open()) {
-                std::cerr << "[Error] Cannot open drive/image: " << drive << "\n";
+                ERR(ErrorCode::DeviceNotFound, "Cannot open drive/image: " + drive);
                 return;
             }
 
@@ -1855,7 +1901,7 @@ private:
 
             auto it = signatures.find(key);
             if (it == signatures.end()) {
-                std::cout << "[Error] Signature not found: " << key << "\n";
+                ERR(ErrorCode::InvalidInput, "Signature not found: " + key);
                 return;
             }
             scan_signature_full(it->second);
@@ -1943,7 +1989,7 @@ private:
 
         std::ofstream script(scriptPath);
         if (!script) {
-            std::cout << "[Error] Could not create helper script at " << scriptPath << "\n";
+            ERR(ErrorCode::ProcessFailure, "Could not create system recovery helper script at path: " + scriptPath);
             Logger::log("[ERROR] Could not create system recovery script: " + scriptPath + " -> systemrecovery()", g_no_log);
             return;
         }
@@ -1967,14 +2013,18 @@ private:
         std::cout << "A helper script was created at: " << scriptPath << "\n";
         std::cout << "Open and inspect it. If you want DriveMgr to attempt to run the helper script now, type the exact phrase 'I UNDERSTAND' (all caps) to confirm: ";
         std::string confirmation;
+
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         std::getline(std::cin, confirmation);
 
         if (confirmation == "I UNDERSTAND") {
+
             std::cout << "Running helper script (requires sudo). This is destructive if incorrect.\n";
             Logger::log("[WARN] User allowed DriveMgr to run system recovery helper script: " + scriptPath + " -> systemrecovery()", g_no_log);
+            
             auto run_res = EXEC_SUDO("sh " + scriptPath);
             std::cout << "Helper script finished. Inspect system state manually.\n";
+
         } else {
             std::cout << "Not running the helper script. Inspect and run manually if desired: sudo sh " << scriptPath << "\n";
         }
@@ -2018,7 +2068,7 @@ public:
             }
 
             default: {
-                std::cout << "[Error] Invalid selection\n";
+                ERR(ErrorCode::OutOfRange, "Invalid menu selection in forensic analysis menu");
                 return;
             }
         }
@@ -2058,6 +2108,7 @@ class Clone {
                 } catch (const std::exception& e) {
 
                     std::cout << RED << "[ERROR] Failed to clone drive: " << e.what() << RESET << "\n";
+                    ERR(ErrorCode::ProcessFailure, "Failed to clone drive: " + std::string(e.what()));
                     Logger::log(std::string("[ERROR] Failed to clone drive from ") + source + " to " + target + " -> Clone::CloneDrive(): " + e.what(), g_no_log);
                     return;
                 }
@@ -2111,7 +2162,7 @@ class Clone {
 
             } catch (std::exception& e) {
 
-                std::cerr << RED << "[ERROR] " << e.what() << RESET << "\n";
+                ERR(ErrorCode::ProcessFailure, "An error occurred during the clone initializing process: " + std::string(e.what()));
                 Logger::log("[ERROR] " + std::string(e.what()), g_no_log);
                 return; 
             }
@@ -2129,7 +2180,7 @@ void logViewer() {
 
     if (!file) {
         Logger::log("[ERROR] Unable to read log file at " + path, g_no_log);
-        std::cerr << RED << "[ERROR] Unable to read log file at path: " << path << RESET << "\n";
+        ERR(ErrorCode::FileNotFound, "Unable to read log file at path: " + path);
         std::cout << "Please read the log file manually at: " << path << "\n";
         return;
     }
@@ -2158,14 +2209,15 @@ void logViewer() {
 
 
 // ==================== Configuration Editor Utility ====================
+// v0.9.19.23; added fallbacks for config values if the user doesnt specify them in the config file
 
 struct CONFIG_VALUES {
-    std::string UI_MODE;
-    std::string COMPILE_MODE;
-    std::string ROOT_MODE;
-    std::string THEME_COLOR_MODE;
-    std::string SELECTION_COLOR_MODE;
-    bool DRY_RUN_MODE;
+    std::string UI_MODE = "CLI";
+    std::string COMPILE_MODE = "StatBin";
+    std::string ROOT_MODE = "false";
+    std::string THEME_COLOR_MODE = "CYAN";
+    std::string SELECTION_COLOR_MODE = "CYAN";
+    bool DRY_RUN_MODE = false;
 };
 
 CONFIG_VALUES configHandler() {
@@ -2180,7 +2232,7 @@ CONFIG_VALUES configHandler() {
     std::ifstream config_file(conf_file);
     if (!config_file.is_open()) {
         Logger::log("[Config_handler ERROR] Cannot open config file", g_no_log);
-        std::cerr << RED << "[Config_handler ERROR] Cannot open config file\n" << RESET;
+        ERR(ErrorCode::FileNotFound, "Cannot open config file at path: " + conf_file);
         return cfg;
     }
 
@@ -2214,7 +2266,6 @@ CONFIG_VALUES configHandler() {
             std::transform(v.begin(), v.end(), v.begin(), ::tolower);
             cfg.DRY_RUN_MODE = (v == "true");
         }
-
     }
     return cfg;
 }
@@ -2233,6 +2284,7 @@ void configEditor() {
     std::cout << "┌─────" << BOLD << " config values " << RESET << "─────┐\n";
     std::cout << "│ UI mode: "          << cfg.UI_MODE               << "\n";
     std::cout << "│ Compile mode: "     << cfg.COMPILE_MODE          << "\n";
+    std::cout << "│ Dry run mode: "     << cfg.DRY_RUN_MODE          << "\n";
     std::cout << "│ Root mode: "        << cfg.ROOT_MODE             << "\n";
     std::cout << "│ Theme Color: "      << cfg.THEME_COLOR_MODE      << "\n";
     std::cout << "│ Selection Color: "  << cfg.SELECTION_COLOR_MODE  << "\n";
@@ -2251,13 +2303,13 @@ void configEditor() {
         const char* username = sudo_user ? sudo_user : user_env;
         
         if (!username) {
-            std::cerr << "[Config Editor Error] Could not determine username.\n";
+            ERR(ErrorCode::ProcessFailure, "Could not determine username for config editor");
             return;
         }
 
         struct passwd* pw = getpwnam(username);
         if (!pw) {
-            std::cerr << "[Config Editor Error] Failed to get home directory for user: " << username << "\n";
+            ERR(ErrorCode::ProcessFailure, "Failed to get home directory for user: " + std::string(username));
             return;
         }
 
@@ -2266,7 +2318,7 @@ void configEditor() {
         std::string lumePath = homeDir + "/.local/share/DriveMgr/bin/Lume/Lume";
 
         if (!fileExists(lumePath)) {
-            std::cerr << RED << "[Config Editor Error] Lume editor not found at:" << lumePath << "\n" << RESET;
+            ERR(ErrorCode::FileNotFound, "Lume editor not found at: " + lumePath);
             return;
         }
 
@@ -2292,17 +2344,18 @@ void configEditor() {
     }        
 }
 
-// if you add any colors then you must add them here!!! very important
-// so the arrays must be synced
-// std::string available_colores[6] = { "RED", "GREEN", "YELLOW", "BLUE", "MAGENTA", "CYAN"};
-// std::string color_codes[6] = {RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN};
+// if you add any colors then you must add them here and in the DmgrLib.h in section colors!!! very important
 
-std::array<std::string, 6> available_colores = {
-    "RED", "GREEN", "YELLOW", "BLUE", "MAGENTA", "CYAN"
-};
-
-std::array<std::string, 6> color_codes = {
-    RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN
+const std::map<std::string, std::string> available_colores {
+    {"RED", RED},
+    {"GREEN", GREEN},
+    {"YELLOW", YELLOW},
+    {"BLUE", BLUE},
+    {"MAGENTA", MAGENTA},
+    {"CYAN", CYAN},
+    {"BOLD", BOLD},
+    {"INVERSE", INVERSE},
+    {"RESET", RESET},
 };
 
 void colorThemeHandler() {
@@ -2310,24 +2363,17 @@ void colorThemeHandler() {
     std::string color_theme_name = cfg.THEME_COLOR_MODE;
     std::string selection_theme_name = cfg.SELECTION_COLOR_MODE;
 
-    size_t count = sizeof(available_colores) / sizeof(available_colores[0]);
-
     THEME_COLOR = RESET;
-
-    for (size_t i = 0; i < count; i++) {
-        if (available_colores[i] == color_theme_name) {
-            THEME_COLOR = color_codes[i];
-            break;
-        }
-    }
-
     SELECTION_COLOR = RESET;
 
-    for (size_t i = 0; i < count; i++) {
-        if (available_colores[i] == selection_theme_name) {
-            SELECTION_COLOR = color_codes[i];
-            break;
-        }
+    auto theme_color = available_colores.find(color_theme_name);
+    if (theme_color != available_colores.end()) {
+        THEME_COLOR = theme_color->second;
+    }
+
+    auto selection_color = available_colores.find(color_theme_name);
+    if (selection_color != available_colores.end()) {
+        SELECTION_COLOR = selection_color->second;
     }
 }
 
@@ -2513,7 +2559,7 @@ void benchmarkMain() {
 
 
 // ==================== Drive Fingerprinting Utility ====================
-// v0.9.14.93; first func to recieve new debug_msg() for testing
+// v0.9.19.24; applyed new ERR error handling
 
 class DriveFingerprinting {
 private:
@@ -2530,7 +2576,6 @@ private:
 
         std::string cmd = "lsblk -J -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINT,VENDOR,FSTYPE,UUID -p " + drive;
 
-        // test
         debug_msg("going to run lsblk cmd for metadata", g_debug);
 
         auto res = EXEC_QUIET(cmd);
@@ -2541,7 +2586,6 @@ private:
         
         if (deviceStart == std::string::npos || childrenPos == std::string::npos) {
             Logger::log("[WARN] Could not parse metadata JSON for drive: " + drive, g_no_log);
-            // test 
             debug_msg("couldnt parse metadata JSON", g_debug);
             return metadata;
         }
@@ -2567,6 +2611,8 @@ private:
         metadata.serial     = extractValue("serial", deviceBlock);
         metadata.uuid       = extractValue("uuid", deviceBlock);
 
+        debug_msg("extracted metadata - name: " + metadata.name + ", size: " + metadata.size + ", model: " + metadata.model + ", serial: " + metadata.serial + ", uuid: " + metadata.uuid, g_debug);
+
         return metadata;
     }
 
@@ -2577,7 +2623,6 @@ private:
 
         std::string fingerprint;
 
-        // test
         debug_msg("going to generate fingerpint based on metadata", g_debug);
 
         for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
@@ -2588,11 +2633,10 @@ private:
         
         if (fingerprint.empty()) {
             Logger::log("[ERROR] Failed to generate fingerprint -> DriveFingerprinting::fingerprinting()", g_no_log);
-            std::cerr << RED << "[ERROR] Failed to generate fingerprint\n" << RESET << "\n";
+            ERR(ErrorCode::ProcessFailure, "Failed to generate fingerprint");
             return "";
         }
 
-        // test
         debug_msg(fingerprint, g_debug);
         return fingerprint;
     }
@@ -2616,7 +2660,7 @@ public:
 
         Logger::log("[INFO] Generated fingerprint for drive: " + drive_name_fingerprinting + " -> DriveFingerprinting::fingerprinting_main()", g_no_log);
 
-        std::cout << BOLD << "\nFingerprint:\n" << RESET;
+        std::cout << BOLD << "Fingerprint:\n" << RESET;
         std::cout << "\r\033[K\n";
         std::cout << fingerprint << "\n";
     }
@@ -2682,20 +2726,25 @@ bool isRoot() {
     return (getuid() == 0);
 }
 
-void checkRoot() {
+bool checkRoot() {
     if (!isRoot()) {
-        std::cerr << "[ERROR] This Function requires root. Please run with 'sudo'.\n";
+        ERR(ErrorCode::PermissionDenied, "This function requires root privileges. Please run with 'sudo'");
         Logger::log("[ERROR] Attempted to run without root privileges -> checkRoot()", g_no_log);
-        exit(EXIT_FAILURE);
+        return false;
     }
+    return true;
 }
 
-void checkRootMetadata() {
+bool checkRootMetadata() {
     if (!isRoot()) {
         std::cerr << YELLOW << "[WARNING] Running without root may limit functionality. For full access, please run with 'sudo'.\n" << RESET;
         Logger::log("[WARNING] Running without root privileges -> checkRootMetadata()", g_no_log);
+        return false;
     }
+    return true;
 }
+
+
 
 enum MenuOptionsMain {
     EXITPROGRAM = 0,        LISTDRIVES = 1,         FORMATDRIVE = 2,        ENCRYPTDECRYPTDRIVE = 3,    RESIZEDRIVE = 4, 
@@ -2708,25 +2757,27 @@ class QuickAccess {
 public:
     static void list_drives()           { listDrives(false); }
 
-    static void format_drive()          { checkRoot(); formatDrive(); }
+    static void format_drive()          { if (!checkRoot()) return; formatDrive(); }
 
-    static void de_en_crypt()           { checkRoot(); DeEncrypting::main(); }
+    static void de_en_crypt()           { if (!checkRoot()) return; DeEncrypting::main(); }
 
-    static void resize_drive()          { checkRoot(); resizeDrive(); }
+    static void resize_drive()          { if (!checkRoot()) return; resizeDrive(); }
 
-    static void check_drive_health()    { checkRoot(); checkDriveHealth(); }
+    static void check_drive_health()    { if (!checkRoot()) return; checkDriveHealth(); }
 
     static void analyze_disk_space()    { analyzeDiskSpace(); }
 
-    static void overwrite_drive_data()  { checkRoot(); OverwriteDriveData(); }
+    static void overwrite_drive_data()  { if (!checkRoot()) return; overwriteDriveData(); }
 
-    static void view_metadata()         { checkRootMetadata(); MetadataReader::mainReader(); }
+    static void view_metadata()         { if (!checkRootMetadata()) return; MetadataReader::mainReader(); }
 
     static void info()                  { Info(); }
 
-    static void Forensics()             { checkRoot(); ForensicAnalysis::mainForensic(); }
+    static void Forensics()             { if (!checkRoot()) return; ForensicAnalysis::mainForensic(); }
 
-    static void clone_drive()           { checkRoot(); Clone::mainClone(); } 
+    static void clone_drive()           { if (!checkRoot()) return; Clone::mainClone(); }
+    
+    static void fingerprint()            { if (!checkRootMetadata()) return; DriveFingerprinting::fingerprinting_main(); }
 };
 
 
@@ -2737,47 +2788,51 @@ int main(int argc, char* argv[]) {
 
     colorThemeHandler();
 
-    for (int i = 1; i < argc; ++i) {
-        std::string a(argv[i]);
+    const std::map<std::string, std::function<void()>> cli_commands = {
+        {"--list-drives", []()          { QuickAccess::list_drives(); }},
+        {"--format-drive", []()         { QuickAccess::format_drive(); }},
+        {"--encrypt-decrypt", []()      { QuickAccess::de_en_crypt(); }},
+        {"--resize-drive", []()         { QuickAccess::resize_drive(); }},
+        {"--check-drive-health", []()   { QuickAccess::check_drive_health(); }},
+        {"--analyze-disk-space", []()   { QuickAccess::analyze_disk_space(); }},
+        {"--overwrite-drive-data", []() { QuickAccess::overwrite_drive_data(); }},
+        {"--view-metadata", []()        { QuickAccess::view_metadata(); }},
+        {"--info", []()                 { QuickAccess::info(); }},
+        {"--forensics", []()            { QuickAccess::Forensics(); }},
+        {"--clone-drive", []()          { QuickAccess::clone_drive(); }},
+        {"--fingerprint", []()          { DriveFingerprinting::fingerprinting_main(); }}
+    };
 
-        if (a == "--no-color" || a == "--no_color" || a == "-C")    { g_no_color = true; continue; }
+    bool flag_dry_run_set = false;
 
-        if ( a == "--no-log" || a == "--no_log")                    { g_no_log = true; continue; }
+    for (int i = 1; i < argc; i++) {
+        std::string a(argv[i]); 
+
+        if (a == "--no-color" || a == "--no_color" || a == "-c")    { g_no_color = true; continue; }
+
+        if (a == "--no-log" || a == "-nl")                          { g_no_log = true; continue; }
 
         if (a == "--help" || a == "-h")                             { printUsage(argv[0]); return 0; }
 
         if (a == "--version" || a == "-v")                          { std::cout << "DriveMgr CLI version: " << VERSION << "\n"; return 0; }
+        
+        if (a == "--debug" || a == "-d")                            { g_debug = true; continue; }
 
-        if (a == "--debug")                                         { g_debug = true; continue; }
+        if (a == "--logs" || a == "-l")                             { logViewer(); return 0; }
 
-        if (a == "--logs")                                          { logViewer(); return 0; }
+        if (a == "--dry-run" || a == "-n")                          { g_dry_run = true; continue; }
 
-        if (a == "--list-drives")                                   { QuickAccess::list_drives(); return 0; }
+        else {
 
-        if (a == "--format-drive")                                  { QuickAccess::format_drive(); return 0; }
-
-        if (a == "--encrypt-decrypt")                               { QuickAccess::de_en_crypt(); return 0; }
-
-        if (a == "--resize-drive")                                  { QuickAccess::resize_drive(); return 0; }
-
-        if (a == "--check-drive-health")                            { QuickAccess::check_drive_health(); return 0; }
-
-        if (a == "--analyze-disk-space")                            { QuickAccess::analyze_disk_space(); return 0; }
-
-        if (a == "--overwrite-drive-data")                          { QuickAccess::overwrite_drive_data(); return 0; }
-
-        if (a == "--view-metadata")                                 { QuickAccess::view_metadata(); return 0; }
-
-        if (a == "--info")                                          { QuickAccess::info(); return 0; }
-
-        if (a == "--forensics")                                     { QuickAccess::Forensics(); return 0; }
-
-        if (a == "--clone-drive")                                   { QuickAccess::clone_drive(); return 0; }
-
-        if (a == "--fingerprint")                                   { DriveFingerprinting::fingerprinting_main(); return 0; }
+            auto cmd = cli_commands.find(argv[i]);
+            
+            if (cmd != cli_commands.end()) {
+                cmd->second();
+                return 0;
+            }
+        }
     }
-    
-    // dry run helper
+
     CONFIG_VALUES cfg = configHandler();
     bool dry_run_mode = cfg.DRY_RUN_MODE;
 
@@ -2785,21 +2840,7 @@ int main(int argc, char* argv[]) {
         g_dry_run = true;
     }
 
-    bool flag_dry_run_set = false;
-
-    // parse command line args
-    for (int i = 1; i < argc; i++) {
-        std::string arg = argv[i];
-        if (arg == "--dry-run" || arg == "-n") {
-            flag_dry_run_set = true;
-        }
-    }
-
-    if (flag_dry_run_set) {
-        g_dry_run = true;
-    } 
-
-    // TUI
+    // ===== TUI menu =====
     struct termios oldt, newt;
     tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
@@ -2898,49 +2939,49 @@ int main(int argc, char* argv[]) {
             }
 
             // 2. Format Drive
-            case FORMATDRIVE:           { checkRoot(); formatDrive(); menuQues(running); break; }
+            case FORMATDRIVE:           { if (!checkRoot()) {menuQues(running);} else {formatDrive(); menuQues(running);} break; }
 
             // 3. En-Decrypt Drive
-            case ENCRYPTDECRYPTDRIVE:   { checkRoot(); DeEncrypting::main(); menuQues(running); break; }
+            case ENCRYPTDECRYPTDRIVE:   { if (!checkRoot()) {menuQues(running);} else {DeEncrypting::main(); menuQues(running);} break; }
 
             // 4. Resize Drive
-            case RESIZEDRIVE:           { checkRoot(); resizeDrive(); menuQues(running); break; }
+            case RESIZEDRIVE:           { if (!checkRoot()) {menuQues(running);} else {resizeDrive(); menuQues(running);} break; }
 
             // 5. Check Drive health
-            case CHECKDRIVEHEALTH:      { checkRoot(); checkDriveHealth(); menuQues(running); break; }
+            case CHECKDRIVEHEALTH:      { if (!checkRoot()) {menuQues(running);} else {checkDriveHealth(); menuQues(running);} break; }
 
             // 6. Analyze Drive Space
             case ANALYZEDISKSPACE:      { analyzeDiskSpace(); menuQues(running); break; }
 
             // 7. Overwrite Data
-            case OVERWRITEDRIVEDATA:    { checkRoot(); OverwriteDriveData(); menuQues(running); break; }
+            case OVERWRITEDRIVEDATA:    { if (!checkRoot()) {menuQues(running);} else {overwriteDriveData(); menuQues(running);} break; }
 
             // 8. View Metadata
-            case VIEWMETADATA:          { checkRootMetadata(); MetadataReader::mainReader(); menuQues(running); break; }
+            case VIEWMETADATA:          { if (!checkRootMetadata()) {menuQues(running);} else {MetadataReader::mainReader(); menuQues(running);} break; }
 
             // 9. View Info
             case VIEWINFO:              { Info(); menuQues(running); break; }
 
             // 10. Mount Unmount Drive
-            case MOUNTUNMOUNT:          { checkRoot(); MountUtility::mainMountUtil(); menuQues(running); break; }
+            case MOUNTUNMOUNT:          { if (!checkRoot()) {menuQues(running);} else {MountUtility::mainMountUtil(); menuQues(running);} break; }
 
             // 11. Forensics
-            case FORENSIC:              { checkRoot(); ForensicAnalysis::mainForensic(); menuQues(running); break; }
+            case FORENSIC:              { if (!checkRoot()) {menuQues(running);} else {ForensicAnalysis::mainForensic(); menuQues(running);} break; }
 
             // 12. Log viewer
             case LOGVIEW:               { logViewer(); menuQues(running); break; }
 
             // 13. Clone Drive
-            case CLONEDRIVE:            { checkRoot(); Clone::mainClone(); menuQues(running); break; }
+            case CLONEDRIVE:            { if (!checkRoot()) {menuQues(running);} else {Clone::mainClone(); menuQues(running);} break; }
 
             // 14. Config edtior
             case CONFIG:                { configEditor(); menuQues(running); break; }
             
             // 15. Benchmark Drive
-            case BENCHMAKR:             { checkRoot(); benchmarkMain(); menuQues(running); break; }
+            case BENCHMAKR:             { if (!checkRoot()) {menuQues(running);} else {benchmarkMain(); menuQues(running);} break; }
 
             // 16. Fingerprint Drive
-            case FINGERPRINT:           { checkRootMetadata(); DriveFingerprinting::fingerprinting_main(); menuQues(running); break; }
+            case FINGERPRINT:           { if (!checkRootMetadata()) {menuQues(running);} else {DriveFingerprinting::fingerprinting_main(); menuQues(running);} break; }
 
             // 17. Updater
             case UPDATER:               { DmgrUpdater::updaterMain(VERSION); menuQues(running); break; }
