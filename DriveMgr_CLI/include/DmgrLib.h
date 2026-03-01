@@ -19,13 +19,13 @@
 #ifndef DRIVEFUNCTIONS_H
 #define DRIVEFUNCTIONS_H
 
+// C++ libs
 #include <iostream>
 #include <vector>
 #include <chrono>
 #include <ctime>
 #include <fstream>
 #include <ostream>
-#include <iostream>
 #include <string>
 #include <cstdlib>
 #include <cstdio>
@@ -49,11 +49,10 @@
 #include <map>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <fcntl.h>
-#include <cerrno>
 #include <sys/select.h>
 #include <sys/time.h>
 #include "command_exec.h"
+#include <random>
 
 // ==================== global vars ====================
 extern bool g_no_color;
