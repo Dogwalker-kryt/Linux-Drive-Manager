@@ -137,6 +137,10 @@ public:
 
         } else {
             std::cout << "\n[INFO] You are up to date.\n";
+
+            if (!dev_suffix.empty()) {
+                std::cout << dev_suffix;
+            }
         }
     }
 };
