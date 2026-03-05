@@ -108,11 +108,10 @@ config.conf        - Example config
 - Partition resizing
 - S.M.A.R.T. drive health checking
 - Partition management
-- Data overwrite/wiping
+- Data overwriteing
 - Change/history log (aka. Loggin system)
-- Metadata viewing
-- Forensic tools (experimental)
-- Disk space visualization (experimental)
+- Metadata viewing by raw and S.M.A.R.T ways
+- Forensic tools (partialy experimental)
 - Log viewer
 - Clone a drive
 - Config file Editor, with my own tiny light weight text editor [Lume](https://github.com/Dogwalker-kryt/Lume)
@@ -127,7 +126,7 @@ config.conf        - Example config
 _If during the installation somthing unexpected happens, you can ask for help by opening an issue or a discussion_
 ### Requirements
 
-- Linux
+- Linux (debian based recommended, but it should also run on other distros
 - C++17 compiler (e.g., g++) or higher
 - OpenSSL dev libraries
 - build-essential, smartmontools
@@ -161,7 +160,6 @@ sudo python3 command_creation.py
 #### Option 2: Manual Compile
 
 ```sh
-
 g++ DriveMgr_CLI/src/DriveMgr_experi.cpp -Iinclude -o DriveMgr -lssl -lcrypto
 ```
 For the GUI version:
@@ -258,27 +256,6 @@ No current known Bugs/Issues
 ---
 
 ## Do you like the Application?
-```text
-							    kc'.      .,cx
-                            0c.             ....;dK
-                         X'                ..     'kW
-                        Wc   ..        ..''..       oW
-                        WW; :k:lx0,   ;XOc;ldXd      .WW
-                        WWc ,k,.,OxlooxXx'..;Kx      .WW
-						WWx .cxxkOOO0KKKK0Okxkl       xW
-						WWX  ;doodxxxxxxddxkkkx'  .,,. ;KW
-					  WWKo. ;KXKOkxxxkkOKXNWWMMM0'       'xNW
-                   WXx;. .xWMMMMWWNNWWWMMMMMMMMMMMk         'o0W
-                 Wd'    'NWWMMMMMWWWMMMMMWWWWNNNXXX0,           :0W
-               WX.    .dNWMMMMMMMMMMMMMMMMMMMMMMWWNNNNd.          '0W
-             WWx.   .kMMMMMMMMMMWMMMMMMMMMMMMMMMMMMMMMMW:     .     oW
-			Wx. .  ,WMMMMMMMMMMWWMMMMMMMMMMMMMMMMMMMMMMMW.    .      lW
-          Wx.   .  WMMMMMMMMMMMWWMMMMMMMMMMMMMMMMMMMMMMMM.    .       N
-          Wo';:;,..ONMMMMMMMMMMWWMMMMMMMMMMMMMMMMMMMMWNNX.        .. :W
-   XXXXXK0kxkOOOOOo,..;oONMMMMMMWMMMMMMMMMMMMMMMMMWWXokOO:        .;dO0
-  xxkOOOOOOOOOOOOOOOkl'   .,oXMMMMMMMMMMMMMMMMMMMWXK0oxOOkoc:::cokOOOOk0
-  OxkOOOOOOOOOOOOOOOOOOx:....cMMMMMMMMMMMMMMMMMMMKo,,oxOOOOOOOOOOOOOOOOOOOO0K
- XxxkOOOOOOOOOOOOOOOOOOOOkxk00XWMMMMMMMMMMWXOdc'    ;oxOOOOOOOOOOOOOkkkxxddxk
-'xddddxxxkkkkkkOOOOOOOOOOkxoc.   ........          .:lxkkOOOkkkxdoloxk0K
-            Okkxxdooddddolc:ck0KXXNNNNNNXXKK0OOkdoll;,;:ccccc:cok
-```
+
+if you like the Drive Manager Utility, please leave a star
+
