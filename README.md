@@ -53,7 +53,7 @@ but to add a safety and orchestration layer on top of them.
 - C++ GUI: `v0.1.1-alpha`  
   _(GUI versions lag behind CLI/TUI)_
 
-**TUI:**
+**TUI (Not getting Updated anymore):**
 
 is basicly the CLI version
 
@@ -66,6 +66,11 @@ is basicly the CLI version
 - **CLI** -> Main programm and getting TUI 	
 
 	-> _(use this)_
+
+
+**Launcher:**
+
+- currently in C, but it will be rewrtien in C++ so it is compatible with the new version of the Drive Manager
 
 ---
 
