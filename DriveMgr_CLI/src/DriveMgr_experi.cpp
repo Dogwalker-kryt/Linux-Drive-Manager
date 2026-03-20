@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.19.30
+// v0.9.19.31
 
 // C++ libraries
 #include <iostream>
@@ -63,30 +63,45 @@
 #include "../include/exec_cmd.h"
 #include "../include/LDM_updater.h"
 
-// │ ├ ┤ ┘ └ ┐ ┌ ─
 // ==================== global variables and definitions ====================
 
-// Version
-#define VERSION std::string("v0.9.19.30")
+// === Version ===
+#define VERSION std::string("v0.9.19.31")
 
-// TUI
-struct termios oldt; 
-struct termios newt;
 
-// color
-static std::string THEME_COLOR      =   RESET;
-static std::string SELECTION_COLOR  =   RESET;
+// === altTerminal Screen ===
+/**
+ * @brief Enters into a Alternate Terminal Screen
+ */
+#define NEWTERMINALSCREEN std::cout << "\033[?1049h";
 
-// flags
+/**
+ * @brief Leaves the Alternate Terminal Screen
+ */
+#define LEAVETERMINALSCREEN std::cout << "\033[?1049l";
+
+
+// === TUI ===
+TerminosIO term;
+struct termios oldt, newt;
+
+
+// === color ===
+static std::string g_THEME_COLOR      =   RESET;
+static std::string g_SELECTION_COLOR  =   RESET;
+
+
+// === flags ===
        bool g_dry_run   =  false;
        bool g_no_color  =  false;
        bool g_no_log    =  false;
 static bool g_debug     =  false;
 
 
-// ==================== Logic Function and Classes ====================
-
+// === other global things ===
 static std::vector<std::string> g_last_drives;
+
+// ==================== Logic Function and Classes ====================
 
 /**
  * @brief Checks the filesystem of a given device and returns its status.
@@ -210,11 +225,7 @@ std::string listDrives(bool input_mode) {
     }
 
     // enable raw mode
-    struct termios oldt, newt;
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    term.enableRawMode();
 
 
     // --- INLINE TUI SELECTION ---
@@ -230,13 +241,13 @@ std::string listDrives(bool input_mode) {
 
             // Arrow indicator
             if (i == selected) {
-                std::cout << SELECTION_COLOR << "> " << RESET;
+                std::cout << g_SELECTION_COLOR << "> " << RESET;
             } else {
                 std::cout << "  ";
             }
 
             // Highlight row
-            if (i == selected) std::cout << SELECTION_COLOR;
+            if (i == selected) std::cout << g_SELECTION_COLOR;
 
             std::cout << std::left
                 << std::setw(3)  << i
@@ -278,7 +289,7 @@ std::string listDrives(bool input_mode) {
     std::cout << "\n";
 
     // restore terminal
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    term.restoreTerminal();
 
     g_selected_drive = drives[selected];
 
@@ -693,7 +704,7 @@ void formatDrive() {
         case 1:
             {
                 std::cout << "Choose a Drive to Format\n";
-                std::string driveName = listDrives(true);
+                const std::string driveName = listDrives(true);
 
                 FormatUtils::formatDriveBasic(driveName);
             }
@@ -703,7 +714,7 @@ void formatDrive() {
         case 2:
             {
                 std::cout << "Choose a Drive to Format with label\n";
-                std::string driveName = listDrives(true);
+                const std::string driveName = listDrives(true);
 
                 std::string label;
                 std::cout << "Enter label: ";
@@ -717,7 +728,7 @@ void formatDrive() {
         case 3:
             {
                 std::cout << "Choose a Drive to Format with label and filesystem type\n";
-                std::string driveName = listDrives(true);
+                const std::string driveName = listDrives(true);
 
                 std::string label;
                 std::cout << "Enter label: ";
@@ -745,7 +756,7 @@ void formatDrive() {
 // ==================== Drive Health Check ====================
 
 int checkDriveHealth() {
-    std::string driveHealth_name = listDrives(true);
+    const std::string driveHealth_name = listDrives(true);
 
     try {
 
@@ -769,7 +780,7 @@ int checkDriveHealth() {
 // ==================== Drive Resizing ====================
 
 void resizeDrive() {
-    std::string driveName = listDrives(true);
+    const std::string driveName = listDrives(true);
 
     std::cout << "Enter new size in GB for drive " << driveName << ":\n";
     int new_size;
@@ -1021,7 +1032,7 @@ private:
     }
 
     static void encrypting() {
-        std::string drive_name = listDrives(true);
+        const std::string drive_name = listDrives(true);
         
         std::cout << YELLOW << "[Warning] Encrypt " << drive_name << "? (y/n)" << RESET << "\n";
         char confirm;
@@ -1065,7 +1076,7 @@ private:
     }
     
     static void decrypting() {
-        std::string drive_name = listDrives(true);
+        const std::string drive_name = listDrives(true);
         
         std::cout << "[Warning] Decrypt " << drive_name << "? (y/n)\n";
         char confirm;
@@ -1126,26 +1137,26 @@ public:
 // Tried my best to make this as safe and readable and maintainable as possible. v0.9.12.92
 
 void overwriteDriveData() { 
-    std::string drive = listDrives(true);
+    const std::string drive_to_operate_on = listDrives(true);
 
-    std::cout << YELLOW << "[WARNING]" << RESET << " Are you sure you want to overwrite all data on " << BOLD << drive << RESET << "? This action cannot be undone! (y/n)\n";
+    std::cout << YELLOW << "[WARNING]" << RESET << " Are you sure you want to overwrite all data on " << BOLD << drive_to_operate_on << RESET << "? This action cannot be undone! (y/n)\n";
         
     char confirm;
     std::cin >> confirm;
 
     if (confirm != 'y' && confirm != 'Y') {
 
-        std::cout << BOLD << "[Overwriting aborted]" << RESET << " The Overwriting process of " << drive << " was interupted by user\n";
-        Logger::log("[INFO] Overwriting process aborted by user for drive: " + drive, g_no_log);
+        std::cout << BOLD << "[Overwriting aborted]" << RESET << " The Overwriting process of " << drive_to_operate_on << " was interupted by user\n";
+        Logger::log("[INFO] Overwriting process aborted by user for drive: " + drive_to_operate_on, g_no_log);
         return;
 
     }
 
-    std::cout << "\nTo be sure you want to overwrite the data on " << BOLD << drive << RESET << " you need to enter the following safety key\n";
+    std::cout << "\nTo be sure you want to overwrite the data on " << BOLD << drive_to_operate_on << RESET << " you need to enter the following safety key\n";
 
     std::string conf_key = confirmationKeyGenerator();
 
-    Logger::log("[INFO] Confirmation key generated for overwriting drive: " + drive, g_no_log);
+    Logger::log("[INFO] Confirmation key generated for overwriting drive: " + drive_to_operate_on, g_no_log);
 
     std::cout << "\n" << conf_key << "\n";
 
@@ -1157,38 +1168,38 @@ void overwriteDriveData() {
     if (user_input != conf_key) {
 
         std::cout << BOLD << "[INFO]" << RESET << " The confirmationkey was incorrect, the overwriting process has been interupted\n";
-        Logger::log("[INFO] Incorrect confirmation key entered, overwriting process aborted for drive: " + drive, g_no_log);
+        Logger::log("[INFO] Incorrect confirmation key entered, overwriting process aborted for drive: " + drive_to_operate_on, g_no_log);
         return;
 
     }
 
-    std::cout << YELLOW << "\n[Process]" << RESET << " Proceeding with overwriting all data on: " << drive << "\n";
+    std::cout << YELLOW << "\n[Process]" << RESET << " Proceeding with overwriting all data on: " << drive_to_operate_on << "\n";
     std::cout << " \n";
 
     try {
-        auto res_urandom = EXEC_SUDO("dd if=/dev/urandom of=" + drive + " bs=1M status=progress && sync"); 
-        auto res_zero = EXEC_SUDO("dd if=/dev/zero of=" + drive + " bs=1M status=progress && sync"); 
+        auto res_urandom = EXEC_SUDO("dd if=/dev/urandom of=" + drive_to_operate_on + " bs=1M status=progress && sync"); 
+        auto res_zero = EXEC_SUDO("dd if=/dev/zero of=" + drive_to_operate_on + " bs=1M status=progress && sync"); 
             
         if (!res_urandom.success && !res_zero.success) {
 
-            ERR(ErrorCode::ProcessFailure, "Failed to overwrite the drive: " + drive);
-            Logger::log("[INFO] Overwriting failed to complete for drive: " + drive, g_no_log);
+            ERR(ErrorCode::ProcessFailure, "Failed to overwrite the drive: " + drive_to_operate_on);
+            Logger::log("[INFO] Overwriting failed to complete for drive: " + drive_to_operate_on, g_no_log);
             return;
 
         } else if (!res_urandom.success || !res_zero.success) {
 
             std::cout << YELLOW << "[Warning]" << RESET << " One of the overwriting operations failed, but the drive may have been partially overwritten. Please check the output and try again if necessary.\n";
-            Logger::log("[WARNING] One of the overwriting operations failed for drive: " + drive, g_no_log);
+            Logger::log("[WARNING] One of the overwriting operations failed for drive: " + drive_to_operate_on, g_no_log);
             return;
         } 
 
-        std::cout << GREEN << "[Success]" << RESET << " Overwriting completed successfully for drive: " << drive << "\n";
-        Logger::log("[INFO] Overwriting completed successfully for drive: " + drive, g_no_log);
+        std::cout << GREEN << "[Success]" << RESET << " Overwriting completed successfully for drive: " << drive_to_operate_on << "\n";
+        Logger::log("[INFO] Overwriting completed successfully for drive: " + drive_to_operate_on, g_no_log);
         return;
 
     } catch (const std::exception& e) {
 
-        Logger::log("[ERROR] Failed during overwriting process for drive: " + drive + " Reason: " + e.what(), g_no_log);
+        Logger::log("[ERROR] Failed during overwriting process for drive: " + drive_to_operate_on + " Reason: " + e.what(), g_no_log);
         ERR(ErrorCode::ProcessFailure, "Exception during overwriting process: " + std::string(e.what()));
         return;
 
@@ -1311,7 +1322,7 @@ private:
     
 public:
     static void mainReader() {
-        std::string driveName = listDrives(true);
+        const std::string driveName = listDrives(true);
 
         try {
 
@@ -1385,7 +1396,7 @@ private:
 
     static void BurnISOToStorageDevice() {
         try {
-            std::string drive_name = listDrives(true);
+            const std::string drive_name = listDrives(true);
 
             std::cout << "Enter the path to the ISO/IMG file you want to burn on " << drive_name << ":\n";
 
@@ -1456,7 +1467,7 @@ private:
      */
     static void choose_mount_unmount(const std::string mount_or_unmount) {
         std::cout << "Enter the drive you want to " << mount_or_unmount << "\n";
-        std::string drive_name = listDrives(true);
+        const std::string drive_name = listDrives(true);
 
         std::string cmd;
 
@@ -1482,7 +1493,7 @@ private:
     }
 
     static void Restore_USB_Drive() {
-        std::string restore_device_name = listDrives(true);
+        const std::string restore_device_name = listDrives(true);
         try {
 
             std::cout << "Are you sure you want to overwrite/clean the ISO/Disk_Image from: " << restore_device_name << " ? [y/n]\n";
@@ -2068,7 +2079,6 @@ public:
 
 class Clone {
     private:
-
         static void CloneDrive(const std::string &source, const std::string &target) {
             std::cout << "\n[CloneDrive] Do you want to clone data from " << source << " to " << target << "? This will overwrite all data on the target drive(n) (y/n): ";
             char confirmation = 'n';
@@ -2119,20 +2129,19 @@ class Clone {
             }
 
             ldm_runtime_error("Target drive string doesn't contain any string that marks it as a drive path");
-            return "";
         }
         
     public:
         static void mainClone() {
             try {
                 std::cout << "\nChoose a Source drive to clone the data from it:\n";
-                std::string source_drive = listDrives(true);
+                const std::string source_drive = listDrives(true);
 
                 std::cout << "\nEnter a Target drive/device to clone the data on to it (dont choose the same drive):\n";
                 std::cout << YELLOW << "[WARNING]" << RESET << " Make sure to choose the mount path of the target" << BOLD << " (e.g., /media/target_drive)\n" << RESET;
                 std::string target_drive;
                 std::getline(std::cin, target_drive);
-                std::string val_target = validateTargetDriveName(target_drive);
+                const std::string val_target = validateTargetDriveName(target_drive);
 
 
                 if (source_drive == target_drive) {
@@ -2173,7 +2182,6 @@ void logViewer() {
     }
 
     std::cout << "\nLog file content:\n";
-
 
     const std::unordered_map<std::string, std::string> log_tags {
         {"[ERROR]", RED},
@@ -2280,7 +2288,7 @@ CONFIG_VALUES configHandler() {
 bool fileExists(const std::string& path) { struct stat buffer; return (stat(path.c_str(), &buffer) == 0); }
 
 void configEditor() {
-    extern struct termios oldt, newt;
+    // extern struct termios oldt, newt;
     CONFIG_VALUES cfg = configHandler();
     
     std::cout << "┌─────" << BOLD << " config values " << RESET << "─────┐\n";
@@ -2331,7 +2339,8 @@ void configEditor() {
         std::cout << "\033[?1049l" << std::flush;
 
         // Restore terminal to normal mode
-        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        // tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        term.restoreTerminal();
 
         // Run Lume
         system(config_editor_cmd.c_str());
@@ -2340,7 +2349,8 @@ void configEditor() {
         std::cout << "\033[?1049h" << std::flush;
 
         // Re-enable raw mode
-        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+        // tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+        term.enableRawMode();
 
         return;
     }        
@@ -2364,17 +2374,17 @@ void colorThemeHandler() {
     std::string color_theme_name = cfg.THEME_COLOR_MODE;
     std::string selection_theme_name = cfg.SELECTION_COLOR_MODE;
 
-    THEME_COLOR = RESET;
-    SELECTION_COLOR = RESET;
+    g_THEME_COLOR = RESET;
+    g_SELECTION_COLOR = RESET;
 
     auto theme_color = available_colores.find(color_theme_name);
     if (theme_color != available_colores.end()) {
-        THEME_COLOR = theme_color->second;
+        g_THEME_COLOR = theme_color->second;
     }
 
     auto selection_color = available_colores.find(color_theme_name);
     if (selection_color != available_colores.end()) {
-        SELECTION_COLOR = selection_color->second;
+        g_SELECTION_COLOR = selection_color->second;
     }
 }
 
@@ -2649,7 +2659,7 @@ private:
 
 public:
     static void fingerprinting_main() {
-        std::string drive_name_fingerprinting = listDrives(true);
+        const std::string drive_name_fingerprinting = listDrives(true);
 
         DriveMetadata metadata = getMetadata(drive_name_fingerprinting);
 
@@ -2683,6 +2693,7 @@ void Info() {
     std::cout << "│ Github: " << BOLD << "https://github.com/Dogwalker-kryt/Linux-Drive-Manager\n" << RESET;
     std::cout << "│ Author: " << BOLD << "Dogwalker-kryt\n" << RESET;
     std::cout << "└───────────────────────────\n";
+    ldm_runtime_error("test");
 }
 
 // v0.9.19.28 last change:
@@ -2795,7 +2806,7 @@ public:
 // ==================== Main Function ====================
 
 int main(int argc, char* argv[]) {
-    std::cout << "\033[?1049h";
+    NEWTERMINALSCREEN;
 
     colorThemeHandler();
 
@@ -2852,10 +2863,7 @@ int main(int argc, char* argv[]) {
     }
 
     // ===== TUI menu =====
-    struct termios oldt, newt;
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO);
+    term.initiateTerminosInput();
 
     bool running = true;
     while (running == true) {
@@ -2874,18 +2882,18 @@ int main(int argc, char* argv[]) {
         };
 
         // enable raw mode for single-key reading
-        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+        term.enableRawMode();
 
         int selected = 0;
         while (true) {
             auto res = EXEC("clear"); 
             std::cout << "Use Up/Down arrows and Enter to select an option.\n\n";
-            std::cout << THEME_COLOR << "┌─────────────────────────────────────────────────┐\n" << RESET;
-            std::cout << THEME_COLOR << "│" << RESET << BOLD << "              DRIVE MANAGEMENT UTILITY           " << RESET << THEME_COLOR << "│\n" << RESET;
-            std::cout << THEME_COLOR << "├─────────────────────────────────────────────────┤\n" << RESET;
+            std::cout << g_THEME_COLOR << "┌─────────────────────────────────────────────────┐\n" << RESET;
+            std::cout << g_THEME_COLOR << "│" << RESET << BOLD << "              DRIVE MANAGEMENT UTILITY           " << RESET << g_THEME_COLOR << "│\n" << RESET;
+            std::cout << g_THEME_COLOR << "├─────────────────────────────────────────────────┤\n" << RESET;
             for (size_t i = 0; i < menuItems.size(); ++i) {
 
-                std::cout << THEME_COLOR << "│ " << RESET;
+                std::cout << g_THEME_COLOR << "│ " << RESET;
 
                 // Build inner content with fixed width
                 std::ostringstream inner;
@@ -2902,10 +2910,10 @@ int main(int argc, char* argv[]) {
                 if ((int)i == selected) std::cout << RESET;
 
                 // Print right border and newline
-                std::cout << THEME_COLOR << " │\n" << RESET;
+                std::cout << g_THEME_COLOR << " │\n" << RESET;
 
             }
-            std::cout  << THEME_COLOR << "└─────────────────────────────────────────────────┘\n" << RESET;
+            std::cout  << g_THEME_COLOR << "└─────────────────────────────────────────────────┘\n" << RESET;
 
             char c = 0;
             if (read(STDIN_FILENO, &c, 1) <= 0) continue;
@@ -2933,7 +2941,7 @@ int main(int argc, char* argv[]) {
         }
 
         // restore terminal
-        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        term.restoreTerminal();
 
         int menuinput = menuItems[selected].first;
         switch (static_cast<MenuOptionsMain>(menuinput)) {
@@ -3007,6 +3015,6 @@ int main(int argc, char* argv[]) {
         }
     }
     
-    std::cout << "\033[?1049l";
+    LEAVETERMINALSCREEN;
     return 0;
 }
