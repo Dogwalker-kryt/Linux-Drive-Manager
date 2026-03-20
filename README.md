@@ -44,8 +44,8 @@ but to add a safety and orchestration layer on top of them.
 
 **CLI:**
 
-- Experimental: `v0.9.19.24`  
-  _(minor code changes + new Error handeling)_
+- Experimental: `v0.9.19.30`  
+  _(minor code changes)_
 
 **GUI (Not getting Updated anymore):**
 
