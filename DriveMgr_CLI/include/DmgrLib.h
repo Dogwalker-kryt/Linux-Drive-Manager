@@ -83,6 +83,26 @@ namespace Color {
 #define INVERSE Color::inverse()
 
 
+// ==================== TerminalAltScreen ====================
+class TerminosIO {
+    private:
+        struct termios oldt, newt;
+
+    public:
+        void initiateTerminosInput() {
+            tcgetattr(STDIN_FILENO, &oldt);
+            newt = oldt;
+            newt.c_lflag &= ~(ICANON | ECHO);
+        }
+
+        void enableRawMode() {
+            tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+        }
+
+        void restoreTerminal() {
+            tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        }
+};
 
 // ==================== Logging ====================
 
