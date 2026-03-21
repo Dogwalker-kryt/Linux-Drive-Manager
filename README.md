@@ -135,6 +135,7 @@ _If during the installation somthing unexpected happens, you can ask for help by
 - C++17 compiler (e.g., g++) or higher
 - OpenSSL dev libraries
 - build-essential, smartmontools
+- Python3 with os libary 
 
 _The Requirements are only for when you manualy build the Application from scratch. If you use the build script, it will automaticly check and get the Required things_
 
@@ -164,8 +165,9 @@ sudo python3 command_creation.py
 ```
 #### Option 2: Manual Compile
 
+for C++ CLI
 ```sh
-g++ DriveMgr_CLI/src/DriveMgr_experi.cpp -Iinclude -o DriveMgr -lssl -lcrypto
+make
 ```
 For the GUI version:
 ```sh
@@ -244,17 +246,18 @@ Distributed under the [GPL-3.0 License](./LICENSE).
 - Want to contribute? See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - Like the tool? Star the repo!
 
----
-
-## Architecture
-
-deleting docs, due to radical changing in code base
 
 ---
 
 ## Known Issues
 
-No current known Bugs/Issues
+- Benchmarking not really working
+- getting error message when reading Metadata of a drive, but still able to read the correct Metadata 
+
+
+**You found an issue?**
+If you found an issue that presistent after restarting the Application, please report it by opening an issue with a detailed report
+
 
 **Disclaimer:** This tool is in active development. Features may not always be stable. Use at your own risk—always test on non-critical systems!
 
