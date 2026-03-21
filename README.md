@@ -256,7 +256,7 @@ Distributed under the [GPL-3.0 License](./LICENSE).
 
 
 **You found an issue?**
-If you found an issue that presistent after restarting the Application, please report it by opening an issue with a detailed report
+If you found an issue that is presistent after restarting the Application, please report it by opening an issue with a detailed report
 
 
 **Disclaimer:** This tool is in active development. Features may not always be stable. Use at your own risk—always test on non-critical systems!
