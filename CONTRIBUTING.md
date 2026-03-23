@@ -87,3 +87,29 @@ other things to avoid:
 - nesting (multiple if statments in one)
 - to much global variables that dont have an clear owner
 - to much raw pointers
+
+
+
+### Tech Stack & Requirements
+
+This project follows a "Lean & DIY" philosophy. We prefer standard C++ and native Linux utilities over heavy external dependencies.
+
+### Environment
+*   **Compiler:** `g++` with **C++17** support.
+*   **Operating System:** Linux (Required for system-level commands).
+*   **System Dependencies:** 
+    *   `openssl` (For cryptographic operations).
+    *   `smartmontools` (Required for disk health/data retrieval).
+    *   Standard Linux utilities (`dd`, `sync`, `sudo`, etc.).
+
+### Core Guidelines
+*   **Standard Library First:** Always prioritize the **C++ Standard Library** and native **Linux System APIs**. 
+*   **Avoid External Bloat:** Do not pull in heavy external libraries (e.g., JSON parsers, Boost). If a task seems impossible without a new library, please open an issue to discuss it first.
+
+### Internal API & Tooling
+To maintain consistency across the codebase, please use our internal handlers instead of raw `std::cout` or `exit()`:
+
+*   **Logging:** Use `Logger::log()`. Reference **`DmgrLib.h`** to understand how the `g_no_log` flag and formatting work.
+*   **Error Handling:** Use the `ERR()` function for critical failures. Reference **`debug.h`** for valid `ErrorCode` definitions and safety requirements.
+
+> **Note:** Before contributing, please read the implementation in the header files mentioned above to ensure your code integrates correctly with our memory and error management.
