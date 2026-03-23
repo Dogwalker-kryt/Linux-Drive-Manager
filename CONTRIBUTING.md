@@ -56,6 +56,7 @@ To contribute code:
      for Contants/macros: UPPER_SNAKE
   
 - Comment your code **only when necessary** — keep comments helpful and to the point, dont over use then (e.g. 10line of comments for a single line of code)
+- Doxygen Comments are fine and should be added for side/helper functions
 - Use C++ 17 or later 
 - Try to write self explaining, readable code
   this is good:
