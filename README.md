@@ -44,8 +44,8 @@ but to add a safety and orchestration layer on top of them.
 
 **CLI:**
 
-- Experimental: `v0.9.19.31`  
-  _(minor code changes)_
+- Experimental: `v0.9.19.33`  
+  _(refactored getMetadat() from regex parsing json to just raw parsing)_
 
 **GUI (Not getting Updated anymore):**
 
@@ -252,7 +252,6 @@ Distributed under the [GPL-3.0 License](./LICENSE).
 ## Known Issues
 
 - Benchmarking not really working
-- getting error message when reading Metadata of a drive, but still able to read the correct Metadata 
 
 
 **You found an issue?**
