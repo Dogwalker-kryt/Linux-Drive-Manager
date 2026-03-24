@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.19.31
+// v0.9.19.33
 
 // C++ libraries
 #include <iostream>
@@ -66,19 +66,19 @@
 // ==================== global variables and definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.19.31")
+#define VERSION std::string("v0.9.19.33")
 
 
 // === altTerminal Screen ===
 /**
  * @brief Enters into a Alternate Terminal Screen
  */
-#define NEWTERMINALSCREEN std::cout << "\033[?1049h";
+#define NEWTERMINALSCREEN "\033[?1049h"
 
 /**
  * @brief Leaves the Alternate Terminal Screen
  */
-#define LEAVETERMINALSCREEN std::cout << "\033[?1049l";
+#define LEAVETERMINALSCREEN "\033[?1049l"
 
 
 // === TUI ===
@@ -100,6 +100,7 @@ static bool g_debug     =  false;
 
 // === other global things ===
 static std::vector<std::string> g_last_drives;
+std::string g_selected_drive;
 
 // ==================== Logic Function and Classes ====================
 
@@ -142,160 +143,167 @@ std::string checkFilesystem(const std::string& device, const std::string& fstype
 }
 
 // ==================== TUI drive selection/listing ====================
-std::string g_selected_drive;
 
-std::string listDrives(bool input_mode) {
-    static std::vector<std::string> drives;
-    drives.clear();
+class ListDrivesUtil {
+    private:
+        struct Row {
+            std::string device, size, type, mount, fstype, status;
+        };
 
-    // Run lsblk using new CmdExec
-    auto lsblk_res = EXEC_QUIET("lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE -d -n -p");
-    std::string lsblk = lsblk_res.output;
+        inline static std::vector<ListDrivesUtil::Row> rows{};
+        
+        /**
+         * @brief This is the Tui menu logic from the listDrive function finaly put in its own function
+         * @param drives use the std::vector<std::string> where you stored your fetched drives
+         * @param rows use the std::verctor<Row> rows, that is only in this class avilable
+         */
+        static std::string tuiForListDrives(std::vector<std::string>& drives, std::vector<ListDrivesUtil::Row> rows) {
+            term.enableRawMode();
 
-    // Print header
-    std::cout << CYAN << "\nAvailable Drives:" << RESET << "\n";
+            int selected = 0;
+            int total = drives.size();
 
-    std::cout << std::left
-        << std::setw(2) 
-        << std::setw(5)  << "#"
-        << BOLD << std::setw(18) << "Device"      << RESET
-        << BOLD << std::setw(10) << "Size"        << RESET
-        << BOLD << std::setw(10) << "Type"        << RESET
-        << BOLD << std::setw(15) << "Mountpoint"  << RESET
-        << BOLD << std::setw(10) << "FSType"      << RESET
-        << "Status" << std::endl;
+            // Move cursor UP to the first drive row
+            std::cout << "\033[" << total << "A";
 
-    std::cout << CYAN;
-    std::cout << std::string(90, '-') << "\n" << RESET;
+            while (true) {
+                std::cout << "\r"; // go to start of line
+                for (int i = 0; i < total; i++) {
 
-    // Parse lsblk output
-    std::istringstream iss(lsblk);
-    std::string line;
-    int idx = 0;
+                    // Arrow indicator
+                    if (i == selected) { std::cout << g_SELECTION_COLOR << "> " << RESET; }
+                    else { std::cout << "  "; }
 
-    struct Row {
-        std::string device, size, type, mount, fstype, status;
-    };
+                    // Highlight row
+                    if (i == selected) std::cout << g_SELECTION_COLOR;
 
-    std::vector<Row> rows;
+                    std::cout << std::left
+                        << std::setw(3)  << i
+                        << std::setw(18) << rows[i].device
+                        << std::setw(10) << rows[i].size
+                        << std::setw(10) << rows[i].type
+                        << std::setw(15) << rows[i].mount
+                        << std::setw(10) << rows[i].fstype
+                        << rows[i].status;
 
-    while (std::getline(iss, line)) {
-        if (line.find("disk") == std::string::npos) continue;
+                    if (i == selected) std::cout << RESET;
 
-        std::istringstream lss(line);
-        Row r;
+                    std::cout << "\n"; 
+                }
 
-        lss >> r.device >> r.size >> r.type;
+                // Move cursor back up
+                std::cout << "\033[" << total << "A";
+                    
+                // Read key
+                char c;
+                if (read(STDIN_FILENO, &c, 1) <= 0) continue;
 
-        std::string rest;
-        std::getline(lss, rest);
-        std::istringstream rss(rest);
+                if (c == '\x1b') {
+                    char seq[2];
 
-        rss >> r.mount >> r.fstype;
-        if (r.mount == "-") r.mount = "";
-        if (r.fstype == "-") r.fstype = "";
+                    if (read(STDIN_FILENO, &seq, 2) == 2) {
+                        if (seq[1] == 'A') selected = (selected - 1 + total) % total; // up
+                        if (seq[1] == 'B') selected = (selected + 1) % total;         // down
+                    }
 
-        r.status = checkFilesystem(r.device, r.fstype);
+                } else if (c == '\n' || c == '\r') {
+                    break; // Enter
+                }
+            }  
 
-        // Print row
-        std::cout << std::left
-                  << std::setw(3)  << idx
-                  << std::setw(18) << r.device
-                  << std::setw(10) << r.size
-                  << std::setw(10) << r.type
-                  << std::setw(15) << r.mount
-                  << std::setw(10) << r.fstype
-                  << r.status << "\n";
+            // Move cursor down past the table so next output prints normally
+            int tableheight = total + 3;
+            std::cout << "\033[" << tableheight << "B" << std::flush;
+            std::cout << "\n";
 
-        drives.push_back(r.device);
-        rows.push_back(r);
-        idx++;
-    }
+            term.restoreTerminal();
 
-    if (drives.empty()) {
-        ERR(ErrorCode::DeviceNotFound, "No drives found");
-        Logger::log("[ERROR] No drives found", g_no_log);
-        return "";
-    }
+            auto tui_selected_drive = drives[selected];
+            return tui_selected_drive;
+        }
 
-    // TUI selection will stay here till i find a solution to put it in its own function
+    public:
+        /**
+         * @brief Prints lsblk output to the terminal. TUI input can be turned on
+         * @param input_mode if 'true' then the TUI selection enables and returns the selected drive when pressed enter
+         * @returns selected drive name as string. TUI must be enabled for this to happen
+         */
+        static std::string listDrives(bool input_mode) {
+            static std::vector<std::string> drives;
+            drives.clear();
 
-    if (input_mode != true) {
-        return "";
-    }
+            // Run lsblk using new CmdExec
+            auto lsblk_res = EXEC_QUIET("lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE -d -n -p");
+            std::string lsblk = lsblk_res.output;
 
-    // enable raw mode
-    term.enableRawMode();
-
-
-    // --- INLINE TUI SELECTION ---
-    int selected = 0;
-    int total = drives.size();
-
-    // Move cursor UP to the first drive row
-    std::cout << "\033[" << total << "A";
-
-    while (true) {
-        for (int i = 0; i < total; i++) {
-            std::cout << "\r"; // go to start of line
-
-            // Arrow indicator
-            if (i == selected) {
-                std::cout << g_SELECTION_COLOR << "> " << RESET;
-            } else {
-                std::cout << "  ";
-            }
-
-            // Highlight row
-            if (i == selected) std::cout << g_SELECTION_COLOR;
+            // Print header
+            std::cout << CYAN << "\nAvailable Drives:" << RESET << "\n";
 
             std::cout << std::left
-                << std::setw(3)  << i
-                << std::setw(18) << rows[i].device
-                << std::setw(10) << rows[i].size
-                << std::setw(10) << rows[i].type
-                << std::setw(15) << rows[i].mount
-                << std::setw(10) << rows[i].fstype
-                << rows[i].status;
+                << std::setw(2) 
+                << std::setw(5)  << "#"
+                << BOLD << std::setw(18) << "Device"      << RESET
+                << BOLD << std::setw(10) << "Size"        << RESET
+                << BOLD << std::setw(10) << "Type"        << RESET
+                << BOLD << std::setw(15) << "Mountpoint"  << RESET
+                << BOLD << std::setw(10) << "FSType"      << RESET
+                << "Status" << std::endl;
 
-            if (i == selected) std::cout << RESET;
+            std::cout << CYAN;
+            std::cout << std::string(90, '-') << "\n" << RESET;
 
-            std::cout << "\n"; 
-        }
+            // Parse lsblk output
+            std::istringstream iss(lsblk);
+            std::string line;
+            int idx = 0;
 
-        // Move cursor back up
-        std::cout << "\033[" << total << "A";
-            
-        // Read key
-        char c;
-        if (read(STDIN_FILENO, &c, 1) <= 0) continue;
+            while (std::getline(iss, line)) {
+                if (line.find("disk") == std::string::npos) continue;
 
-        if (c == '\x1b') {
-            char seq[2];
+                std::istringstream lss(line);
+                Row r;
 
-            if (read(STDIN_FILENO, &seq, 2) == 2) {
-                if (seq[1] == 'A') selected = (selected - 1 + total) % total; // up
-                if (seq[1] == 'B') selected = (selected + 1) % total;         // down
+                lss >> r.device >> r.size >> r.type;
+
+                std::string rest;
+                std::getline(lss, rest);
+                std::istringstream rss(rest);
+
+                rss >> r.mount >> r.fstype;
+                if (r.mount == "-") r.mount = "";
+                if (r.fstype == "-") r.fstype = "";
+
+                r.status = checkFilesystem(r.device, r.fstype);
+
+                // Print row
+                std::cout << std::left
+                        << std::setw(3)  << idx
+                        << std::setw(18) << r.device
+                        << std::setw(10) << r.size
+                        << std::setw(10) << r.type
+                        << std::setw(15) << r.mount
+                        << std::setw(10) << r.fstype
+                        << r.status << "\n";
+
+                drives.push_back(r.device);
+                rows.push_back(r);
+                idx++;
             }
 
-        } else if (c == '\n' || c == '\r') {
-            break; // Enter
-        }
-    }  
+            if (drives.empty()) {
+                ERR(ErrorCode::DeviceNotFound, "No drives found");
+                Logger::log("[ERROR] No drives found", g_no_log);
+                return "";
+            }
 
-    // Move cursor down past the table so next output prints normally
-    int tableheight = total + 3;
-    std::cout << "\033[" << tableheight << "B" << std::flush;
-    std::cout << "\n";
+            if (input_mode != true) {
+                return "";
+            }
 
-    // restore terminal
-    term.restoreTerminal();
-
-    g_selected_drive = drives[selected];
-
-    return g_selected_drive;
-}
-
+            g_selected_drive = tuiForListDrives(drives, rows);
+            return g_selected_drive;
+        }   
+};
 
 // ==================== Partition Management ==================== 
 
@@ -352,7 +360,7 @@ class PartitionsUtils {
 };
 
 void listpartisions() { 
-    std::string drive_name = listDrives(true); 
+    std::string drive_name = ListDrivesUtil::listDrives(true); 
 
     std::cout << "\nPartitions of drive " << drive_name << ":\n";
 
@@ -543,7 +551,7 @@ void listpartisions() {
 // ==================== Disk Space Analysis ====================··−·
  
 void analyzeDiskSpace() {
-    std::string drive_name = listDrives(true); 
+    std::string drive_name = ListDrivesUtil::listDrives(true); 
 
     std::cout  << CYAN << "\n------ Disk Information ------\n" << RESET;
 
@@ -704,7 +712,7 @@ void formatDrive() {
         case 1:
             {
                 std::cout << "Choose a Drive to Format\n";
-                const std::string driveName = listDrives(true);
+                const std::string driveName = ListDrivesUtil::listDrives(true);
 
                 FormatUtils::formatDriveBasic(driveName);
             }
@@ -714,7 +722,7 @@ void formatDrive() {
         case 2:
             {
                 std::cout << "Choose a Drive to Format with label\n";
-                const std::string driveName = listDrives(true);
+                const std::string driveName = ListDrivesUtil::listDrives(true);
 
                 std::string label;
                 std::cout << "Enter label: ";
@@ -728,7 +736,7 @@ void formatDrive() {
         case 3:
             {
                 std::cout << "Choose a Drive to Format with label and filesystem type\n";
-                const std::string driveName = listDrives(true);
+                const std::string driveName = ListDrivesUtil::listDrives(true);
 
                 std::string label;
                 std::cout << "Enter label: ";
@@ -756,7 +764,7 @@ void formatDrive() {
 // ==================== Drive Health Check ====================
 
 int checkDriveHealth() {
-    const std::string driveHealth_name = listDrives(true);
+    const std::string driveHealth_name = ListDrivesUtil::listDrives(true);
 
     try {
 
@@ -780,7 +788,7 @@ int checkDriveHealth() {
 // ==================== Drive Resizing ====================
 
 void resizeDrive() {
-    const std::string driveName = listDrives(true);
+    const std::string driveName = ListDrivesUtil::listDrives(true);
 
     std::cout << "Enter new size in GB for drive " << driveName << ":\n";
     int new_size;
@@ -1014,6 +1022,11 @@ class EnDecryptionUtils {
 
 class DeEncrypting {
 private:
+    /**
+     * @brief local Confirmation key abstraction for En- Decrypting. 
+     * @param operation will print the entered string  
+     * @return true if success
+     */
     static bool confirm_with_key(const std::string& operation) {
         std::string key = confirmationKeyGenerator();
         std::cout << YELLOW << operation << RESET << "\n";
@@ -1032,7 +1045,7 @@ private:
     }
 
     static void encrypting() {
-        const std::string drive_name = listDrives(true);
+        const std::string drive_name = ListDrivesUtil::listDrives(true);
         
         std::cout << YELLOW << "[Warning] Encrypt " << drive_name << "? (y/n)" << RESET << "\n";
         char confirm;
@@ -1076,7 +1089,7 @@ private:
     }
     
     static void decrypting() {
-        const std::string drive_name = listDrives(true);
+        const std::string drive_name = ListDrivesUtil::listDrives(true);
         
         std::cout << "[Warning] Decrypt " << drive_name << "? (y/n)\n";
         char confirm;
@@ -1137,7 +1150,7 @@ public:
 // Tried my best to make this as safe and readable and maintainable as possible. v0.9.12.92
 
 void overwriteDriveData() { 
-    const std::string drive_to_operate_on = listDrives(true);
+    const std::string drive_to_operate_on = ListDrivesUtil::listDrives(true);
 
     std::cout << YELLOW << "[WARNING]" << RESET << " Are you sure you want to overwrite all data on " << BOLD << drive_to_operate_on << RESET << "? This action cannot be undone! (y/n)\n";
         
@@ -1225,54 +1238,40 @@ private:
 
     static DriveMetadata getMetadata(const std::string& drive) {
         DriveMetadata metadata;
+        // -P (Pairs) is the key here. It output KEY="VALUE"
+        std::string cmd = "lsblk -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINT,VENDOR,FSTYPE,UUID -P -p " + drive; 
 
-        std::string cmd = "lsblk -J -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINT,VENDOR,FSTYPE,UUID -p " + drive;
-
-        auto res = EXEC_QUIET(cmd); 
-        std::string json = res.output;
-
-        if (!res.success || json.empty()) {
-            ERR(ErrorCode::ProcessFailure, "Failed to execute lsblk for metadata retrieval");
-            Logger::log("[ERROR] Failed to execute lsblk for metadata retrieval -> getMetadata()", g_no_log);
-            return metadata;
+        auto res = EXEC_QUIET(cmd);
+        if (!res.success || res.output.empty()) { 
+            ERR(ErrorCode::ProcessFailure, "The lsblk failed to deliver data");
+            Logger::log("[ERROR] lsblk failed to deliver data -> getMetadata", g_no_log);
+            return metadata; 
         }
 
-        size_t deviceStart = json.find("{", json.find("["));
-        size_t childrenPos = json.find("\"children\"", deviceStart);
+        auto extract = [&](const std::string& key) -> std::string {
+            std::string search = key + "=\"";
+            size_t start = res.output.find(search);
 
-        std::string deviceBlock = json.substr(deviceStart, childrenPos - deviceStart);
-
-        auto extractValue = [&](const std::string& key, const std::string& from) -> std::string {
-
-            std::regex pattern("\"" + key + "\"\\s*:\\s*(null|\"(.*?)\")");
-            std::smatch match;
+            if (start == std::string::npos) return "N/A";
             
-            if (std::regex_search(from, match, pattern)) {
+            start += search.length();
+            size_t end = res.output.find("\"", start);
 
-                if (match[1] == "null") {
-                    ERR(ErrorCode::DataUnavailable, "Value for " + key + " is null in lsblk output");
-                    Logger::log("[ERROR] Value for " + key + " is null in lsblk output -> getMetadata()", g_no_log);
-                    return "";
-
-                } else {
-                    return match[2].str();
-                }
-            }
-
-            ERR(ErrorCode::CorruptedData, "Failed to extract " + key + " from lsblk output");
-            Logger::log("[ERROR] Failed to extract " + key + " from lsblk output -> getMetadata()", g_no_log);
-            return "";
+            if (end == std::string::npos) return "N/A";
+            
+            std::string val = res.output.substr(start, end - start);
+            return val.empty() ? "N/A" : val;
         };
 
-        metadata.name       = extractValue("name", deviceBlock);
-        metadata.size       = extractValue("size", deviceBlock);
-        metadata.model      = extractValue("model", deviceBlock);
-        metadata.serial     = extractValue("serial", deviceBlock);
-        metadata.type       = extractValue("type", deviceBlock);
-        metadata.mountpoint = extractValue("mountpoint", deviceBlock);
-        metadata.vendor     = extractValue("vendor", deviceBlock);
-        metadata.fstype     = extractValue("fstype", deviceBlock);
-        metadata.uuid       = extractValue("uuid", deviceBlock);
+        metadata.name       = extract("NAME");
+        metadata.size       = extract("SIZE");
+        metadata.model      = extract("MODEL");
+        metadata.serial     = extract("SERIAL");
+        metadata.type       = extract("TYPE");
+        metadata.mountpoint = extract("MOUNTPOINT");
+        metadata.vendor     = extract("VENDOR");
+        metadata.fstype     = extract("FSTYPE");
+        metadata.uuid       = extract("UUID");
 
         return metadata;
     }
@@ -1322,7 +1321,7 @@ private:
     
 public:
     static void mainReader() {
-        const std::string driveName = listDrives(true);
+        const std::string driveName = ListDrivesUtil::listDrives(true);
 
         try {
 
@@ -1396,7 +1395,7 @@ private:
 
     static void BurnISOToStorageDevice() {
         try {
-            const std::string drive_name = listDrives(true);
+            const std::string drive_name = ListDrivesUtil::listDrives(true);
 
             std::cout << "Enter the path to the ISO/IMG file you want to burn on " << drive_name << ":\n";
 
@@ -1467,7 +1466,7 @@ private:
      */
     static void choose_mount_unmount(const std::string mount_or_unmount) {
         std::cout << "Enter the drive you want to " << mount_or_unmount << "\n";
-        const std::string drive_name = listDrives(true);
+        const std::string drive_name = ListDrivesUtil::listDrives(true);
 
         std::string cmd;
 
@@ -1493,7 +1492,7 @@ private:
     }
 
     static void Restore_USB_Drive() {
-        const std::string restore_device_name = listDrives(true);
+        const std::string restore_device_name = ListDrivesUtil::listDrives(true);
         try {
 
             std::cout << "Are you sure you want to overwrite/clean the ISO/Disk_Image from: " << restore_device_name << " ? [y/n]\n";
@@ -1644,7 +1643,7 @@ private:
 
     static void CreateDiskImage() {
         try {
-            std::string driveName = listDrives(true);
+            const std::string driveName = ListDrivesUtil::listDrives(true);
 
             std::cout << "Enter the path where the disk image should be saved (e.g., /path/to/image.img):\n";
             std::string imagePath;
@@ -1718,7 +1717,7 @@ private:
     //·−−− recovery side functions
     static void filerecovery() {
         //std::string device = getAndValidateDriveName("Enter the NAME of a drive or image to scan for recoverable files (e.g., /dev/sda:");
-        std::string device = listDrives(true);
+        const std::string device = ListDrivesUtil::listDrives(true);
 
         static const std::vector<std::string> signature_names = {"all","png","jpg","elf","zip","pdf","mp3","mp4","wav","avi","tar.gz","conf","txt","sh","xml","html","csv"};
         std::cout << "Type signature to search (e.g. png) or 'all':\n";
@@ -1906,7 +1905,7 @@ private:
     }
 
     static void partitionrecovery() {
-        std::string device = listDrives(true);
+        std::string device = ListDrivesUtil::listDrives(true);
 
         std::cout << "\n--- Partition table (parted) ---\n";
         auto parted_res = EXEC_SUDO("parted -s " + device + " print");
@@ -1963,7 +1962,7 @@ private:
     }
     
     static void systemrecovery() {
-        std::string device = listDrives(true);
+        std::string device = ListDrivesUtil::listDrives(true);
 
         std::cout << "\nListing partitions and filesystems for " << device << "\n";
         std::string lsblk_cmd = "lsblk -o NAME,FSTYPE,SIZE,MOUNTPOINT,LABEL -p -n " + device;
@@ -2135,7 +2134,7 @@ class Clone {
         static void mainClone() {
             try {
                 std::cout << "\nChoose a Source drive to clone the data from it:\n";
-                const std::string source_drive = listDrives(true);
+                const std::string source_drive = ListDrivesUtil::listDrives(true);
 
                 std::cout << "\nEnter a Target drive/device to clone the data on to it (dont choose the same drive):\n";
                 std::cout << YELLOW << "[WARNING]" << RESET << " Make sure to choose the mount path of the target" << BOLD << " (e.g., /media/target_drive)\n" << RESET;
@@ -2217,147 +2216,7 @@ void logViewer() {
 // ==================== Configuration Editor Utility ====================
 // v0.9.19.23; added fallbacks for config values if the user doesnt specify them in the config file
 
-struct CONFIG_VALUES {
-    std::string UI_MODE = "CLI";
-    std::string COMPILE_MODE = "StatBin";
-    std::string THEME_COLOR_MODE = "CYAN";
-    std::string SELECTION_COLOR_MODE = "CYAN";
-    bool DRY_RUN_MODE = false;
-    bool ROOT_MODE = false;
-};
-
-CONFIG_VALUES configHandler() {
-    CONFIG_VALUES cfg{}; 
-    
-    std::string conf_file = filePathHandler("/.local/share/DriveMgr/data/config.conf");
-
-    if (conf_file.empty()) {
-        return cfg;
-    }
-
-    std::ifstream config_file(conf_file);
-    if (!config_file.is_open()) {
-        Logger::log("[Config_handler ERROR] Cannot open config file", g_no_log);
-        ERR(ErrorCode::FileNotFound, "Cannot open config file at path: " + conf_file + ". Check if the config exists and is readable. Returning default config values.");
-        return cfg;
-    }
-
-    std::string line;
-    while (std::getline(config_file, line)) {
-
-        if (line.empty() || line[0] == '#')
-            continue;
-
-        size_t pos = line.find('=');
-        if (pos == std::string::npos)
-            continue;
-
-        std::string key = line.substr(0, pos);
-        std::string value = line.substr(pos + 1);
-
-        // trim whitespace
-        key.erase(0, key.find_first_not_of(" \t"));
-        key.erase(key.find_last_not_of(" \t") + 1);
-
-        value.erase(0, value.find_first_not_of(" \t"));
-        value.erase(value.find_last_not_of(" \t") + 1);
-
-        if (key == "UI_MODE") cfg.UI_MODE = value;
-        else if (key == "COMPILE_MODE") cfg.COMPILE_MODE = value;
-        else if (key == "COLOR_THEME") cfg.THEME_COLOR_MODE = value;
-        else if (key == "SELECTION_COLOR") cfg.SELECTION_COLOR_MODE = value;
-        else if (key == "DRY_RUN_MODE") {
-            std::string v = value;
-            std::transform(v.begin(), v.end(), v.begin(), ::tolower);
-            cfg.DRY_RUN_MODE = (v == "true");
-        }
-        else if (key == "ROOT_MODE") {
-            std::string v = value;
-            std::transform(v.begin(), v.end(), v.begin(), ::tolower);
-            cfg.ROOT_MODE = (v == "true");
-        };
-    }
-    return cfg;
-}
-
-/**
- * Helper function to check if a file exists at the given path.
- * @param path The file path to check.
- * @return true if the file exists, false otherwise.
- */
-bool fileExists(const std::string& path) { struct stat buffer; return (stat(path.c_str(), &buffer) == 0); }
-
-void configEditor() {
-    // extern struct termios oldt, newt;
-    CONFIG_VALUES cfg = configHandler();
-    
-    std::cout << "┌─────" << BOLD << " config values " << RESET << "─────┐\n";
-    std::cout << "│ UI mode: "          << cfg.UI_MODE               << "\n";
-    std::cout << "│ Compile mode: "     << cfg.COMPILE_MODE          << "\n";
-    std::cout << "│ Dry run mode: "     << cfg.DRY_RUN_MODE          << "\n";
-    std::cout << "│ Root mode: "        << cfg.ROOT_MODE             << "\n";
-    std::cout << "│ Theme Color: "      << cfg.THEME_COLOR_MODE      << "\n";
-    std::cout << "│ Selection Color: "  << cfg.SELECTION_COLOR_MODE  << "\n";
-    std::cout << "└─────────────────────────┘\n";   
-   
-    std::cout << "\nDo you want to edit the config file? (y/n)\n";
-    std::string config_edit;
-    std::cin >> config_edit;
-    
-    if (config_edit == "n" || config_edit.empty()) {
-        return;
-        
-    } else if (config_edit == "y") {
-        const char* sudo_user = std::getenv("SUDO_USER");
-        const char* user_env = std::getenv("USER");
-        const char* username = sudo_user ? sudo_user : user_env;
-        
-        if (!username) {
-            ERR(ErrorCode::ProcessFailure, "Could not determine username for config editor");
-            return;
-        }
-
-        struct passwd* pw = getpwnam(username);
-        if (!pw) {
-            ERR(ErrorCode::ProcessFailure, "Failed to get home directory for user: " + std::string(username));
-            return;
-        }
-
-        std::string homeDir = pw->pw_dir;
-
-        std::string lumePath = homeDir + "/.local/share/DriveMgr/bin/Lume/Lume";
-
-        if (!fileExists(lumePath)) {
-            ERR(ErrorCode::FileNotFound, "Lume editor not found at: " + lumePath);
-            return;
-        }
-
-        std::string configPath = homeDir + "/.local/share/DriveMgr/data/config.conf";
-        std::string config_editor_cmd = "\"" + lumePath + "\" \"" + configPath + "\"";
-
-        // Leave alt screen
-        std::cout << "\033[?1049l" << std::flush;
-
-        // Restore terminal to normal mode
-        // tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-        term.restoreTerminal();
-
-        // Run Lume
-        system(config_editor_cmd.c_str());
-
-        // Re-enter alt screen
-        std::cout << "\033[?1049h" << std::flush;
-
-        // Re-enable raw mode
-        // tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-        term.enableRawMode();
-
-        return;
-    }        
-}
-
-// if you add any colors then you must add them here and in the LdmLib.h in section colors!!! very important
-const std::map<std::string, std::string> available_colores {
+const std::unordered_map<std::string, std::string> available_colores {
     {"RED", RED},
     {"GREEN", GREEN},
     {"YELLOW", YELLOW},
@@ -2369,24 +2228,134 @@ const std::map<std::string, std::string> available_colores {
     {"RESET", RESET},
 };
 
-void colorThemeHandler() {
-    CONFIG_VALUES cfg = configHandler();
-    std::string color_theme_name = cfg.THEME_COLOR_MODE;
-    std::string selection_theme_name = cfg.SELECTION_COLOR_MODE;
+class ConfigColorsAndOtherValueHandeling {
+    public:
+        struct CONFIG_VALUES {
+            std::string UI_MODE = "CLI";
+            std::string COMPILE_MODE = "StatBin";
+            std::string THEME_COLOR_MODE = "CYAN";
+            std::string SELECTION_COLOR_MODE = "CYAN";
+            bool DRY_RUN_MODE = false;
+            bool ROOT_MODE = false;
+        };
 
-    g_THEME_COLOR = RESET;
-    g_SELECTION_COLOR = RESET;
+        static CONFIG_VALUES configHandler() {
+            CONFIG_VALUES cfg{}; 
+            std::string conf_file = filePathHandler("/.local/share/DriveMgr/data/config.conf");
 
-    auto theme_color = available_colores.find(color_theme_name);
-    if (theme_color != available_colores.end()) {
-        g_THEME_COLOR = theme_color->second;
-    }
+            if (conf_file.empty()) {
+                ERR(ErrorCode::DataUnavailable, "Using default config values!");
+                return cfg;
+            }
 
-    auto selection_color = available_colores.find(color_theme_name);
-    if (selection_color != available_colores.end()) {
-        g_SELECTION_COLOR = selection_color->second;
-    }
-}
+            std::ifstream config_file(conf_file);
+            if (!config_file.is_open()) {
+                Logger::log("[Config_handler ERROR] Cannot open config file", g_no_log);
+                ERR(ErrorCode::FileNotFound, "Cannot open config file at path: " + conf_file + ". Check if the config exists and is readable. Returning default config values.");
+                return cfg;
+            }
+
+            std::string line;
+            while (std::getline(config_file, line)) {
+                if (line.empty() || line[0] == '#') { continue; }
+
+                size_t pos = line.find('=');
+                if (pos == std::string::npos) { continue; }
+
+                std::string key = line.substr(0, pos);
+                std::string value = line.substr(pos + 1);
+
+                // trim whitespace
+                key.erase(0, key.find_first_not_of(" \t"));
+                key.erase(key.find_last_not_of(" \t") + 1);
+
+                value.erase(0, value.find_first_not_of(" \t"));
+                value.erase(value.find_last_not_of(" \t") + 1);
+
+                if (key == "UI_MODE") cfg.UI_MODE = value;
+                else if (key == "COMPILE_MODE") cfg.COMPILE_MODE = value;
+                else if (key == "COLOR_THEME") cfg.THEME_COLOR_MODE = value;
+                else if (key == "SELECTION_COLOR") cfg.SELECTION_COLOR_MODE = value;
+                else if (key == "DRY_RUN_MODE") {
+                    std::string v = value;
+                    std::transform(v.begin(), v.end(), v.begin(), ::tolower);
+                    cfg.DRY_RUN_MODE = (v == "true");
+                }
+                else if (key == "ROOT_MODE") {
+                    std::string v = value;
+                    std::transform(v.begin(), v.end(), v.begin(), ::tolower);
+                    cfg.ROOT_MODE = (v == "true");
+                };
+            }
+            return cfg;
+        }
+
+        /**
+         * Helper function to check if a file exists at the given path.
+         * @param path The file path to check.
+         * @return true if the file exists, false otherwise.
+         */
+        static bool fileExists(const std::string& path) { struct stat buffer; return (stat(path.c_str(), &buffer) == 0); }
+
+        static void configEditor() {
+            CONFIG_VALUES cfg = configHandler();
+            
+            std::cout << "┌─────" << BOLD << " config values " << RESET << "─────┐\n";
+            std::cout << "│ UI mode: "          << cfg.UI_MODE               << "\n";
+            std::cout << "│ Compile mode: "     << cfg.COMPILE_MODE          << "\n";
+            std::cout << "│ Dry run mode: "     << cfg.DRY_RUN_MODE          << "\n";
+            std::cout << "│ Root mode: "        << cfg.ROOT_MODE             << "\n";
+            std::cout << "│ Theme Color: "      << cfg.THEME_COLOR_MODE      << "\n";
+            std::cout << "│ Selection Color: "  << cfg.SELECTION_COLOR_MODE  << "\n";
+            std::cout << "└─────────────────────────┘\n";   
+            std::cout << "\nDo you want to edit the config file? (y/n)\n";
+            std::string config_edit;
+            std::cin >> config_edit;
+            
+            if (config_edit == "n" || config_edit.empty()) { return; }
+            else if (config_edit == "y") {
+                std::string lumePath = filePathHandler("/.local/share/DriveMgr/bin/Lume/Lume");
+
+                if (!fileExists(lumePath)) {
+                    ERR(ErrorCode::FileNotFound, "Lume editor not found at: " + lumePath);
+                    return;
+                }
+
+                std::string configPath = filePathHandler("/.local/share/DriveMgr/data/config.conf");
+                std::string config_editor_cmd_run = "\"" + lumePath + "\" \"" + configPath + "\"";
+
+                std::cout << LEAVETERMINALSCREEN << std::flush;
+
+                term.restoreTerminal();
+
+                system(config_editor_cmd_run.c_str());
+
+                std::cout << NEWTERMINALSCREEN << std::flush;
+
+                term.enableRawMode();
+                return;
+            }        
+        }
+
+        static void colorThemeHandler() {
+            CONFIG_VALUES cfg = configHandler();
+            std::string color_theme_name = cfg.THEME_COLOR_MODE;
+            std::string selection_theme_name = cfg.SELECTION_COLOR_MODE;
+
+            g_THEME_COLOR = RESET;
+            g_SELECTION_COLOR = RESET;
+
+            auto theme_color = available_colores.find(color_theme_name);
+            if (theme_color != available_colores.end()) {
+                g_THEME_COLOR = theme_color->second;
+            }
+
+            auto selection_color = available_colores.find(color_theme_name);
+            if (selection_color != available_colores.end()) {
+                g_SELECTION_COLOR = selection_color->second;
+            }
+        }
+};
 
 
 // ==================== Drive Benchmark Utility ====================
@@ -2659,7 +2628,7 @@ private:
 
 public:
     static void fingerprinting_main() {
-        const std::string drive_name_fingerprinting = listDrives(true);
+        const std::string drive_name_fingerprinting = ListDrivesUtil::listDrives(true);
 
         DriveMetadata metadata = getMetadata(drive_name_fingerprinting);
 
@@ -2724,9 +2693,13 @@ static void printUsage(const char* progname) {
     char input[2];
     std::cout << "press any key to close\n";
     fgets(input, sizeof(input), stdin);
-    std::cout << "\033[?1049l";
+    std::cout << LEAVETERMINALSCREEN;
 }
 
+/**
+ * @brief This is the End question that is promted when a function failed/finished
+ * @param running There is a variable in main that is named 'running', use it for only this
+ */
 void menuQues(bool& running) {   
     std::cout << BOLD <<"\nPress '1' for returning to the main menu, '2' to exit:\n" << RESET;
 
@@ -2777,7 +2750,7 @@ enum MenuOptionsMain {
 
 class QuickAccess {
 public:
-    static void list_drives()           { listDrives(false); }
+    static void list_drives()           { ListDrivesUtil::listDrives(false); }
 
     static void format_drive()          { if (!checkRoot()) return; formatDrive(); }
 
@@ -2806,9 +2779,10 @@ public:
 // ==================== Main Function ====================
 
 int main(int argc, char* argv[]) {
-    NEWTERMINALSCREEN;
+    std::cout << NEWTERMINALSCREEN;
 
-    colorThemeHandler();
+    // colorThemeHandler();
+    ConfigColorsAndOtherValueHandeling::colorThemeHandler();
 
     const std::map<std::string, std::function<void()>> cli_commands = {
         {"--list-drives", []()          { QuickAccess::list_drives(); }},
@@ -2855,7 +2829,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    CONFIG_VALUES cfg = configHandler();
+    ConfigColorsAndOtherValueHandeling::CONFIG_VALUES cfg = ConfigColorsAndOtherValueHandeling::configHandler();
     bool dry_run_mode = cfg.DRY_RUN_MODE;
 
     if (dry_run_mode == true) {
@@ -2947,7 +2921,7 @@ int main(int argc, char* argv[]) {
         switch (static_cast<MenuOptionsMain>(menuinput)) {
 
             case LISTDRIVES: {
-                listDrives(false);
+                ListDrivesUtil::listDrives(false);
                 std::cout << BOLD << "\nPress '1' to return, '2' for advanced listing, or '3' to exit:\n" << RESET;
                 int menuques2;
                 std::cin >> menuques2;
@@ -2994,7 +2968,7 @@ int main(int argc, char* argv[]) {
             case CLONEDRIVE:            { if (!checkRoot()) {menuQues(running);} else {Clone::mainClone(); menuQues(running);} break; }
 
             // 14. Config edtior
-            case CONFIG:                { configEditor(); menuQues(running); break; }
+            case CONFIG:                { ConfigColorsAndOtherValueHandeling::configEditor(); menuQues(running); break; }
             
             // 15. Benchmark Drive
             case BENCHMAKR:             { if (!checkRoot()) {menuQues(running);} else {benchmarkMain(); menuQues(running);} break; }
@@ -3015,6 +2989,6 @@ int main(int argc, char* argv[]) {
         }
     }
     
-    LEAVETERMINALSCREEN;
+    std::cout << LEAVETERMINALSCREEN;
     return 0;
 }
