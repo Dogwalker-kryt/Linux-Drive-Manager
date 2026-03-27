@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.19.33
+// v0.9.19.35_dev
 
 // C++ libraries
 #include <iostream>
@@ -35,11 +35,11 @@
 #include <cstring>
 #include <fstream>
 #include <regex>
-#include <map>
 #include <cstdint>
 #include <ctime>
 #include <random>
 #include <unordered_map>
+#include <optional>
 
 // system includes
 #include <sys/stat.h>
@@ -63,10 +63,11 @@
 #include "../include/exec_cmd.h"
 #include "../include/LDM_updater.h"
 
+// │ ├ ┤ ┘ └ ┐ ┌ ─
 // ==================== global variables and definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.19.33")
+#define VERSION std::string("v0.9.19.35_dev")
 
 
 // === altTerminal Screen ===
@@ -101,6 +102,7 @@ static bool g_debug     =  false;
 // === other global things ===
 static std::vector<std::string> g_last_drives;
 std::string g_selected_drive;
+
 
 // ==================== Logic Function and Classes ====================
 
@@ -142,7 +144,7 @@ std::string checkFilesystem(const std::string& device, const std::string& fstype
     }
 }
 
-// ==================== TUI drive selection/listing ====================
+// ========== TUI drive selection/listing ==========
 
 class ListDrivesUtil {
     private:
@@ -305,7 +307,7 @@ class ListDrivesUtil {
         }   
 };
 
-// ==================== Partition Management ==================== 
+// ========== Partition Management ========== 
 
 class PartitionsUtils {
     public:
@@ -548,7 +550,7 @@ void listpartisions() {
     }
 }
 
-// ==================== Disk Space Analysis ====================··−·
+// ========== Disk Space Analysis ==========··−·
  
 void analyzeDiskSpace() {
     std::string drive_name = ListDrivesUtil::listDrives(true); 
@@ -632,7 +634,7 @@ void analyzeDiskSpace() {
 }
 
 
-// ==================== Drive Formatting ====================
+// ========== Drive Formatting ==========
 
 class FormatUtils {
 private:
@@ -760,8 +762,7 @@ void formatDrive() {
     }
 }
 
-
-// ==================== Drive Health Check ====================
+// ========== Drive Health Check ==========
 
 int checkDriveHealth() {
     const std::string driveHealth_name = ListDrivesUtil::listDrives(true);
@@ -784,14 +785,13 @@ int checkDriveHealth() {
    return 0;
 }
 
-
-// ==================== Drive Resizing ====================
+// ========== Drive Resizing ==========
 
 void resizeDrive() {
     const std::string driveName = ListDrivesUtil::listDrives(true);
 
     std::cout << "Enter new size in GB for drive " << driveName << ":\n";
-    int new_size;
+    uint new_size;
     std::cin >> new_size;
 
     if (new_size <= 0) {
@@ -825,8 +825,7 @@ void resizeDrive() {
     }
 }
 
-
-// ==================== Drive Encryption Utilities ==================== 
+// ========== Drive Encryption ========== 
 
 class EnDecryptionUtils {
     private:
@@ -1017,9 +1016,6 @@ class EnDecryptionUtils {
         
 };
 
-
-// ==================== Drive Encryption/Decryption main ====================
-
 class DeEncrypting {
 private:
     /**
@@ -1145,8 +1141,7 @@ public:
     }
 };
 
-
-// ==================== Drive Data Overwriting ====================
+// ========== Drive Data Overwriting ==========
 // Tried my best to make this as safe and readable and maintainable as possible. v0.9.12.92
 
 void overwriteDriveData() { 
@@ -1176,7 +1171,7 @@ void overwriteDriveData() {
     std::cout << "\nEnter the confirmation key:\n";
 
     std::string user_input;
-    std::cin >> user_input;
+    std::getline(std::cin, user_input);
 
     if (user_input != conf_key) {
 
@@ -1219,8 +1214,8 @@ void overwriteDriveData() {
     }
 }
 
-
-// ==================== Drive Metadata Reader ====================
+// ========== Drive Metadata Reader ==========
+// getMetadata refactor
 
 class MetadataReader {
 private:
@@ -1339,8 +1334,7 @@ public:
     } 
 };
 
-
-// ==================== Mounting and Burning Utilities ====================
+// ========== Mounting and Burning Utilities ==========
 // IsoFileMetadataChecker and IsoBurner refactored; v0.9.13.93
 
 class MountUtility {
@@ -1632,8 +1626,7 @@ public:
     }
 };
 
-
-// ==================== Forensic Analysis Utilities ====================
+// ========== Forensic Analysis Utilities ==========
 
 class ForensicAnalysis {
 private:
@@ -2071,8 +2064,7 @@ public:
     }
 };
 
-
-// ==================== Clone Drive Utility ====================
+// ========== Clone Drive Utility ==========
 // last updated v0.18.15
 // validate func and tiny refacotring of funcs
 
@@ -2095,7 +2087,8 @@ class Clone {
 
                     if (!res.success) {
                         Logger::log("[ERROR] Failed to clone drive from " + source + " to " + target + " -> Clone::CloneDrive()", g_no_log);
-                        ldm_runtime_error("Clone operation failed");
+                        ERR(ErrorCode::ProcessFailure, "Failed to clone data from " + source + " to " + target);
+                        return;
                     }
 
                     std::cout << GREEN << "[Success] Drive cloned from " << source << " to " << target << "\n" << RESET;
@@ -2112,23 +2105,27 @@ class Clone {
 
         }
 
-        static std::string validateTargetDriveName(std::string &target_drive) {
-            const std::array<std::string, 3> valid_paths_contains {
+        static std::optional<std::string> validateTargetDriveName(const std::string& target_drive) {
+            static const std::array<std::string, 3> valid_paths_contains {
                 "/mnt/", "/dev/", "/media/"
             };
 
             if (target_drive.empty()) {
-                ldm_runtime_error("[ERROR] Target drive cannot be empty");
+                ERR(ErrorCode::DataUnavailable, "Target drive cannot be empty string");
+                Logger::log("[ERROR] Target drive cannot be empty string", g_no_log);
+                return std::nullopt;
             }
-            
+
             for (const auto& path : valid_paths_contains) {
                 if (target_drive.find(path) != std::string::npos) {
                     return target_drive;
                 }
             }
 
-            ldm_runtime_error("Target drive string doesn't contain any string that marks it as a drive path");
+            ERR(ErrorCode::InvalidInput, "Target drive string doesn't contain a valid drive path prefix");
+            return std::nullopt;
         }
+
         
     public:
         static void mainClone() {
@@ -2140,7 +2137,11 @@ class Clone {
                 std::cout << YELLOW << "[WARNING]" << RESET << " Make sure to choose the mount path of the target" << BOLD << " (e.g., /media/target_drive)\n" << RESET;
                 std::string target_drive;
                 std::getline(std::cin, target_drive);
-                const std::string val_target = validateTargetDriveName(target_drive);
+
+                const auto validated = validateTargetDriveName(target_drive);
+                if (!validated) { return; }
+
+                const std::string val_target = *validated;
 
 
                 if (source_drive == target_drive) {
@@ -2164,8 +2165,7 @@ class Clone {
         }
 };
 
-
-// ==================== Log Viewer Utility ====================
+// ========== Log Viewer Utility ==========
 // v0.9.19.29; new logic for printing the logs and colorizing them
 
 void logViewer() {
@@ -2212,8 +2212,7 @@ void logViewer() {
     }
 }
 
-
-// ==================== Configuration Editor Utility ====================
+// ========== Configuration Editor Utility ==========
 // v0.9.19.23; added fallbacks for config values if the user doesnt specify them in the config file
 
 const std::unordered_map<std::string, std::string> available_colores {
@@ -2228,7 +2227,7 @@ const std::unordered_map<std::string, std::string> available_colores {
     {"RESET", RESET},
 };
 
-class ConfigColorsAndOtherValueHandeling {
+class ConfigValueHandeling {
     public:
         struct CONFIG_VALUES {
             std::string UI_MODE = "CLI";
@@ -2245,6 +2244,7 @@ class ConfigColorsAndOtherValueHandeling {
 
             if (conf_file.empty()) {
                 ERR(ErrorCode::DataUnavailable, "Using default config values!");
+                Logger::log("[ERROR] config file is using defautl values, due to emtpy config", g_no_log);
                 return cfg;
             }
 
@@ -2357,188 +2357,7 @@ class ConfigColorsAndOtherValueHandeling {
         }
 };
 
-
-// ==================== Drive Benchmark Utility ====================
-// benchamarkSequentitalWrite last made v0.18.15
-
-double benchmarkSequentialWrite(const std::string& path, size_t totalMB = 512) {
-    const size_t blockSize = 4 * 1024 * 1024; // 4MB
-    static char buffer[blockSize];
-    memset(buffer, 'A', blockSize);
-
-    std::string tempFile = path + "/dmgr_benchmark.tmp";
-
-    int fd = open(tempFile.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
-    if (fd < 0) return -1;
-
-    auto start = std::chrono::high_resolution_clock::now();
-
-    size_t totalBytes = totalMB * 1024ULL * 1024ULL;
-    size_t written = 0;
-
-    while (written < totalBytes) {
-        size_t toWrite = std::min(blockSize, totalBytes - written);
-        ssize_t ret = write(fd, buffer, toWrite);
-        if (ret < 0) break;
-        written += ret;
-    }
-
-    fsync(fd);
-    close(fd);
-
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> diff = end - start;
-
-    std::remove(tempFile.c_str());
-    return totalMB / diff.count();
-}
-
-double benchmarkSequentialRead(const std::string& path, size_t totalMB = 512) {
-    const size_t blockSize = 4 * 1024 * 1024;
-
-    std::string tempFile = path + "/dmgr_benchmark.tmp";
-    {
-        std::ofstream out(tempFile, std::ios::binary);
-        std::vector<char> buffer(blockSize, 'A');
-        for (size_t i = 0; i < totalMB * 1024 * 1024; i += blockSize)
-            out.write(buffer.data(), blockSize);
-    }
-
-    std::ifstream in(tempFile, std::ios::binary);
-    if (!in.is_open()) return -1;
-
-    std::vector<char> buffer(blockSize);
-
-    auto start = std::chrono::high_resolution_clock::now();
-
-    while (in.read(buffer.data(), blockSize)) {}
-
-    auto end = std::chrono::high_resolution_clock::now();
-    in.close();
-
-    std::chrono::duration<double> diff = end - start;
-    double seconds = diff.count();
-    double mbps = (double)totalMB / seconds;
-
-    std::remove(tempFile.c_str());
-    return mbps;
-}
-
-double benchmarkRandomRead(const std::string& path, size_t operations = 50000) {
-    const size_t blockSize = 4096;
-
-    std::string tempFile = path + "/dmgr_benchmark.tmp";
-    {
-        std::ofstream out(tempFile, std::ios::binary);
-        std::vector<char> buffer(blockSize, 'A');
-        for (size_t i = 0; i < operations * blockSize; i += blockSize)
-            out.write(buffer.data(), blockSize);
-    }
-
-    std::ifstream in(tempFile, std::ios::binary);
-    if (!in.is_open()) return -1;
-
-    std::vector<char> buffer(blockSize);
-
-    auto start = std::chrono::high_resolution_clock::now();
-
-    for (size_t i = 0; i < operations; i++) {
-        size_t offset = (rand() % operations) * blockSize;
-        in.seekg(offset);
-        in.read(buffer.data(), blockSize);
-    }
-
-    auto end = std::chrono::high_resolution_clock::now();
-    in.close();
-
-    std::chrono::duration<double> diff = end - start;
-    double seconds = diff.count();
-
-    std::remove(tempFile.c_str());
-    return operations / seconds; // IOPS
-}
-
-struct Rule {
-    std::function<bool(double,double,double)> match;
-    std::string label;
-};
-
-std::string classifyDrive(double w, double r, double iops) {
-    std::vector<Rule> rules = {
-        { [](double w, double r, double i){ return w > 0 && r > 0; },
-          "The Benchmark failed\n" },
-
-        { [](double w, double r, double i){ return w < 50 && r < 200; },
-          "Your device has the performance of a USB Flash Drive\n" },
-
-        { [](double w, double r, double i){ return w < 150 && r < 150; },
-          "Your device has the performance of a Hard Disk Drive (HDD)\n" },
-
-        { [](double w, double r, double i){ return w < 600 && r < 600; },
-          "Your device has the performance of a SATA SSD\n" },
-
-        { [](double w, double r, double i){ return w < 3500 && r < 3500; },
-          "Your device has the performance of an NVMe SSD (Gen3)\n" },
-
-        { [](double w, double r, double i){ return w >= 3500; },
-          "Your device has the performance of a high‑performance NVMe SSD (Gen4/Gen5)\n" }
-    };
-
-    for (auto& rule : rules)
-        if (rule.match(w, r, iops))
-            return rule.label;
-
-    return "[ERROR] Program failed to classify your Drive type\nDrive type: Unkown\n";
-}
-
-void printBenchmarkSpeeds(double wirte_speed_seq, double read_speed_seq, double iops_speed) {
-    std::string w_str = std::to_string(wirte_speed_seq);
-    std::string r_str = std::to_string(read_speed_seq);
-    std::string i_str = std::to_string(iops_speed);
-
-    auto fmt = [](double v) {
-    std::ostringstream ss;
-    ss << std::fixed << std::setprecision(2) << v;
-    return ss.str();
-    };
-
-    std::string w_str2 = fmt(wirte_speed_seq);
-    std::string r_str2 = fmt(read_speed_seq);
-    std::string i_str2 = fmt(iops_speed);
-
-    const int innerWidth = 30;
-
-    // int pad_w = innerWidth - (2 + w_str2.length());
-    // int pad_r = innerWidth - (2 + r_str2.length());
-    // int pad_i = innerWidth - (2 + i_str2.length());
-
-    std::cout << BOLD << "\n[Benchmark results]\n" << RESET;
-    std::cout << " Sequential Write speed : " << w_str2 << " MB/s\n";
-    std::cout << " Sequential Read speed  : " << r_str2 << " MB/s\n";
-    std::cout << " IOPS speed             : " << i_str2 << " IOPS\n";
-
-    std::string aprox_drive_type = classifyDrive(wirte_speed_seq, read_speed_seq, iops_speed);
-    std::cout << aprox_drive_type;
-}
-
-void benchmarkMain() {
-    std::cout << BOLD << "\n[Drive Benchmark Tool]\n" << RESET;
-    std::cout << "Enter a path like '/home', '/mnt/drive' or 'media/[user]/usb_device' to benchmark\n";
-    char benchmark_dir_name_buffer[256];
-
-    std::cout << "Make sure you have around 1 GB free space on the Drive\n";
-    std::cout << "And dont kill the program during the Benchmark, this can cause the temp benchmark file to be not deleted!";
-    fgets(benchmark_dir_name_buffer, sizeof(benchmark_dir_name_buffer), stdin);
-
-    double write_speed_seq = benchmarkSequentialWrite(benchmark_dir_name_buffer);
-    double read_speed_seq = benchmarkSequentialRead(benchmark_dir_name_buffer);
-    double iops_speed = benchmarkRandomRead(benchmark_dir_name_buffer);
-
-    printBenchmarkSpeeds(write_speed_seq, read_speed_seq, iops_speed);
-}
-
-
-// ==================== Drive Fingerprinting Utility ====================
+// ========== Drive Fingerprinting Utility ==========
 // v0.9.19.24; applyed new ERR error handling
 
 class DriveFingerprinting {
@@ -2553,45 +2372,35 @@ private:
 
     static DriveMetadata getMetadata(const std::string& drive) {
         DriveMetadata metadata;
-
-        std::string cmd = "lsblk -J -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINT,VENDOR,FSTYPE,UUID -p " + drive;
-
-        debug_msg("going to run lsblk cmd for metadata", g_debug);
+        std::string cmd = "lsblk -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINT,VENDOR,FSTYPE,UUID -P -p " + drive; 
 
         auto res = EXEC_QUIET(cmd);
-        std::string json = res.output;
-
-        size_t deviceStart = json.find("{", json.find("["));
-        size_t childrenPos = json.find("\"children\"", deviceStart);
-        
-        if (deviceStart == std::string::npos || childrenPos == std::string::npos) {
-            Logger::log("[WARN] Could not parse metadata JSON for drive: " + drive, g_no_log);
-            debug_msg("couldnt parse metadata JSON", g_debug);
-            return metadata;
+        if (!res.success || res.output.empty()) { 
+            ERR(ErrorCode::ProcessFailure, "The lsblk failed to deliver data");
+            Logger::log("[ERROR] lsblk failed to deliver data -> getMetadata", g_no_log);
+            return metadata; 
         }
-        
-        std::string deviceBlock = json.substr(deviceStart, childrenPos - deviceStart);
 
-        auto extractValue = [&](const std::string& key, const std::string& from) -> std::string {
-            std::regex pattern("\"" + key + "\"\\s*:\\s*(null|\"(.*?)\")");
-            std::smatch match;
+        auto extract = [&](const std::string& key) -> std::string {
+            std::string search = key + "=\"";
+            size_t start = res.output.find(search);
 
-            if (std::regex_search(from, match, pattern)) {
-                if (match[1] == "null")
-                    return "";
-                else
-                    return match[2].str();
-            }
-            return "";
+            if (start == std::string::npos) return "N/A";
+            
+            start += search.length();
+            size_t end = res.output.find("\"", start);
+
+            if (end == std::string::npos) return "N/A";
+            
+            std::string val = res.output.substr(start, end - start);
+            return val.empty() ? "N/A" : val;
         };
 
-        metadata.name       = extractValue("name", deviceBlock);
-        metadata.size       = extractValue("size", deviceBlock);
-        metadata.model      = extractValue("model", deviceBlock);
-        metadata.serial     = extractValue("serial", deviceBlock);
-        metadata.uuid       = extractValue("uuid", deviceBlock);
-
-        debug_msg("extracted metadata - name: " + metadata.name + ", size: " + metadata.size + ", model: " + metadata.model + ", serial: " + metadata.serial + ", uuid: " + metadata.uuid, g_debug);
+        metadata.name       = extract("NAME");
+        metadata.size       = extract("SIZE");
+        metadata.model      = extract("MODEL");
+        metadata.serial     = extract("SERIAL");
+        metadata.uuid       = extract("UUID");
 
         return metadata;
     }
@@ -2650,19 +2459,20 @@ public:
     }
 };
 
-// ==================== Main Menu and Utilities ====================
+// ========== Main Menu and Utilities ==========
 
 void Info() {
-    std::cout << "\n┌──────────" << BOLD << " Info " << RESET << "──────────\n";
-    std::cout << "│ Welcome to Linux Drive Manager (DMgr / LDM) — a program for Linux to view and operate your storage devices.\n"; 
-    std::cout << "│ Warning! You should know the basics about drives so you don't lose any data.\n";
-    std::cout << "│ If you find problems or have ideas, visit the GitHub page and open an issue.\n";
-    std::cout << "│ " << BOLD << "Other info:\n" << RESET;
-    std::cout << "│ Version: " << BOLD << VERSION << RESET << "\n";
-    std::cout << "│ Github: " << BOLD << "https://github.com/Dogwalker-kryt/Linux-Drive-Manager\n" << RESET;
-    std::cout << "│ Author: " << BOLD << "Dogwalker-kryt\n" << RESET;
-    std::cout << "└───────────────────────────\n";
-    ldm_runtime_error("test");
+    int setw_for_version;
+    if (VERSION.find_last_of("_dev")) { setw_for_version = 98; } else { setw_for_version = 102; }
+    std::cout << "\n┌────────────────────────────────────────────────────────" << BOLD << " Info " << RESET << "────────────────────────────────────────────────────────┐\n";
+    std::cout << "│ Welcome to Linux Drive Manager (DMgr / LDM) — a program for Linux to view and operate your storage devices." <<                   std::setw(14) << "│\n"; 
+    std::cout << "│ Warning! You should know the basics about drives so you don't lose any data." <<                                                  std::setw(45) << "│\n";
+    std::cout << "│ If you find problems or have ideas, visit the GitHub page and open an issue." <<                                                  std::setw(45) << "│\n";
+    std::cout << "│ " << BOLD << "Other info:" << RESET <<                                                                                           std::setw(110) << "│\n";
+    std::cout << "│ Version: " << BOLD << VERSION << RESET <<                                                                           std::setw(setw_for_version) << "│\n";
+    std::cout << "│ Github: " << BOLD << "https://github.com/Dogwalker-kryt/Linux-Drive-Manager" << RESET <<                                          std::setw(60) << "│\n";
+    std::cout << "│ Author: " << BOLD << "Dogwalker-kryt" << RESET <<                                                                                 std::setw(99) << "│\n";
+    std::cout << "└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘\n";
 }
 
 // v0.9.19.28 last change:
@@ -2740,63 +2550,33 @@ bool checkRootMetadata() {
     return true;
 }
 
-
 enum MenuOptionsMain {
     EXITPROGRAM = 0,        LISTDRIVES = 1,         FORMATDRIVE = 2,        ENCRYPTDECRYPTDRIVE = 3,    RESIZEDRIVE = 4, 
     CHECKDRIVEHEALTH = 5,   ANALYZEDISKSPACE = 6,   OVERWRITEDRIVEDATA = 7, VIEWMETADATA = 8,           VIEWINFO = 9,
-    MOUNTUNMOUNT = 10,      FORENSIC = 11,          LOGVIEW = 12,           CLONEDRIVE = 13,            CONFIG = 14, 
-    BENCHMAKR = 15,         FINGERPRINT = 16,       UPDATER = 17
+    MOUNTUNMOUNT = 10,      FORENSIC = 11,          LOGVIEW = 12,           CLONEDRIVE = 13,            CONFIG = 14,          
+    FINGERPRINT = 15,       UPDATER = 16
 };
-
-class QuickAccess {
-public:
-    static void list_drives()           { ListDrivesUtil::listDrives(false); }
-
-    static void format_drive()          { if (!checkRoot()) return; formatDrive(); }
-
-    static void de_en_crypt()           { if (!checkRoot()) return; DeEncrypting::main(); }
-
-    static void resize_drive()          { if (!checkRoot()) return; resizeDrive(); }
-
-    static void check_drive_health()    { if (!checkRoot()) return; checkDriveHealth(); }
-
-    static void analyze_disk_space()    { analyzeDiskSpace(); }
-
-    static void overwrite_drive_data()  { if (!checkRoot()) return; overwriteDriveData(); }
-
-    static void view_metadata()         { if (!checkRootMetadata()) return; MetadataReader::mainReader(); }
-
-    static void info()                  { Info(); }
-
-    static void Forensics()             { if (!checkRoot()) return; ForensicAnalysis::mainForensic(); }
-
-    static void clone_drive()           { if (!checkRoot()) return; Clone::mainClone(); }
-    
-    static void fingerprint()            { if (!checkRootMetadata()) return; DriveFingerprinting::fingerprinting_main(); }
-};
-
 
 // ==================== Main Function ====================
 
 int main(int argc, char* argv[]) {
     std::cout << NEWTERMINALSCREEN;
 
-    // colorThemeHandler();
-    ConfigColorsAndOtherValueHandeling::colorThemeHandler();
+    ConfigValueHandeling::colorThemeHandler();
 
     const std::map<std::string, std::function<void()>> cli_commands = {
-        {"--list-drives", []()          { QuickAccess::list_drives(); }},
-        {"--format-drive", []()         { QuickAccess::format_drive(); }},
-        {"--encrypt-decrypt", []()      { QuickAccess::de_en_crypt(); }},
-        {"--resize-drive", []()         { QuickAccess::resize_drive(); }},
-        {"--check-drive-health", []()   { QuickAccess::check_drive_health(); }},
-        {"--analyze-disk-space", []()   { QuickAccess::analyze_disk_space(); }},
-        {"--overwrite-drive-data", []() { QuickAccess::overwrite_drive_data(); }},
-        {"--view-metadata", []()        { QuickAccess::view_metadata(); }},
-        {"--info", []()                 { QuickAccess::info(); }},
-        {"--forensics", []()            { QuickAccess::Forensics(); }},
-        {"--clone-drive", []()          { QuickAccess::clone_drive(); }},
-        {"--fingerprint", []()          { DriveFingerprinting::fingerprinting_main(); }}
+        {"--list-drives", []()          { if (!checkRoot()) return; ListDrivesUtil::listDrives(false); }},
+        {"--format-drive", []()         { if (!checkRoot()) return; formatDrive(); }},
+        {"--encrypt-decrypt", []()      { if (!checkRoot()) return; DeEncrypting::main(); }},
+        {"--resize-drive", []()         { if (!checkRoot()) return; resizeDrive(); }},
+        {"--check-drive-health", []()   { if (!checkRoot()) return; checkDriveHealth(); }},
+        {"--analyze-disk-space", []()   { analyzeDiskSpace(); }},
+        {"--overwrite-drive-data", []() { if (!checkRoot()) return; overwriteDriveData(); }},
+        {"--view-metadata", []()        { if (!checkRootMetadata()) return; MetadataReader::mainReader(); }},
+        {"--info", []()                 { Info(); }},
+        {"--forensics", []()            { if (!checkRoot()) return; ForensicAnalysis::mainForensic(); }},
+        {"--clone-drive", []()          { if (!checkRoot()) return; Clone::mainClone(); }},
+        {"--fingerprint", []()          { if (!checkRootMetadata()) return; DriveFingerprinting::fingerprinting_main(); }}
     };
 
     bool flag_dry_run_set = false;
@@ -2829,7 +2609,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    ConfigColorsAndOtherValueHandeling::CONFIG_VALUES cfg = ConfigColorsAndOtherValueHandeling::configHandler();
+    ConfigValueHandeling::CONFIG_VALUES cfg = ConfigValueHandeling::configHandler();
     bool dry_run_mode = cfg.DRY_RUN_MODE;
 
     if (dry_run_mode == true) {
@@ -2851,11 +2631,11 @@ int main(int argc, char* argv[]) {
             {7, "Overwrite Drive Data"},                    {8, "View Drive Metadata"},                         {9, "View Info/help"},
             {10, "Universal Disk tool (ISO/mount/...)"},    {11, "Forensic Analysis/Disk Image (experimental)"},
             {12, "Log viewer"},                             {13, "Clone a Drive"},                              {14, "Config Editor"}, 
-            {15, "Benchmark (experimental)"},               {16, "Fingerprint Drive"},                          {17, "Updater"},
+            {15, "Fingerprint Drive"},                      {16, "Updater"},
             {0, "Exit"}
         };
 
-        // enable raw mode for single-key reading
+        // for single-key reading
         term.enableRawMode();
 
         int selected = 0;
@@ -2914,7 +2694,6 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // restore terminal
         term.restoreTerminal();
 
         int menuinput = menuItems[selected].first;
@@ -2968,15 +2747,12 @@ int main(int argc, char* argv[]) {
             case CLONEDRIVE:            { if (!checkRoot()) {menuQues(running);} else {Clone::mainClone(); menuQues(running);} break; }
 
             // 14. Config edtior
-            case CONFIG:                { ConfigColorsAndOtherValueHandeling::configEditor(); menuQues(running); break; }
+            case CONFIG:                { ConfigValueHandeling::configEditor(); menuQues(running); break; }
             
-            // 15. Benchmark Drive
-            case BENCHMAKR:             { if (!checkRoot()) {menuQues(running);} else {benchmarkMain(); menuQues(running);} break; }
-
-            // 16. Fingerprint Drive
+            // 15. Fingerprint Drive
             case FINGERPRINT:           { if (!checkRootMetadata()) {menuQues(running);} else {DriveFingerprinting::fingerprinting_main(); menuQues(running);} break; }
 
-            // 17. Updater
+            // 16. Updater
             case UPDATER:               { LDMUpdater::updaterMain(VERSION); menuQues(running); break; }
 
             // 0. Exit
