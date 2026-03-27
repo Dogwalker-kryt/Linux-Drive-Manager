@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.19.35_dev
+// v0.9.20.36
 
 // C++ libraries
 #include <iostream>
@@ -67,7 +67,7 @@
 // ==================== global variables and definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.19.35_dev")
+#define VERSION std::string("v0.9.20.36")
 
 
 // === altTerminal Screen ===
@@ -2232,8 +2232,8 @@ class ConfigValueHandeling {
         struct CONFIG_VALUES {
             std::string UI_MODE = "CLI";
             std::string COMPILE_MODE = "StatBin";
-            std::string THEME_COLOR_MODE = "CYAN";
-            std::string SELECTION_COLOR_MODE = "CYAN";
+            std::string THEME_COLOR_MODE = "RESET";
+            std::string SELECTION_COLOR_MODE = "RESET";
             bool DRY_RUN_MODE = false;
             bool ROOT_MODE = false;
         };
@@ -2557,6 +2557,148 @@ enum MenuOptionsMain {
     FINGERPRINT = 15,       UPDATER = 16
 };
 
+class MainMenuIO {
+    private:
+        static void turnOffColor() {
+            g_SELECTION_COLOR = RESET;
+            g_THEME_COLOR = RESET;
+        }
+
+    public:
+        /**
+         * @brief Its the menu Tui selection with colors
+         * @param menuItems its defined in the main functions, it contains all avilable menu items
+         */
+        static int colorTuiMenu(std::vector<std::pair<int, std::string>> &menuItems) {
+            term.enableRawMode();
+
+            int selected = 0;
+            while (true) {
+                auto res = EXEC("clear"); 
+                std::cout << "Use Up/Down arrows and Enter to select an option.\n\n";
+                std::cout << g_THEME_COLOR << "┌─────────────────────────────────────────────────┐\n" << RESET;
+                std::cout << g_THEME_COLOR << "│" << RESET << BOLD << "              DRIVE MANAGEMENT UTILITY           " << RESET << g_THEME_COLOR << "│\n" << RESET;
+                std::cout << g_THEME_COLOR << "├─────────────────────────────────────────────────┤\n" << RESET;
+                for (size_t i = 0; i < menuItems.size(); ++i) {
+
+                    std::cout << g_THEME_COLOR << "│ " << RESET;
+
+                    // Build inner content with fixed width
+                    std::ostringstream inner;
+                    inner << std::setw(2) << menuItems[i].first << ". " << std::left << std::setw(43) << menuItems[i].second;
+                    std::string innerStr = inner.str();
+
+                    if (menuItems[i].first == 0) {
+                        innerStr = g_THEME_COLOR + innerStr + RESET;
+                    }
+
+                    // Apply inverse only to inner content
+                    if ((int)i == selected) std::cout << INVERSE;
+                    std::cout << innerStr;
+                    if ((int)i == selected) std::cout << RESET;
+
+                    // Print right border and newline
+                    std::cout << g_THEME_COLOR << " │\n" << RESET;
+
+                }
+                std::cout  << g_THEME_COLOR << "└─────────────────────────────────────────────────┘\n" << RESET;
+
+                char c = 0;
+                if (read(STDIN_FILENO, &c, 1) <= 0) continue;
+
+                if (c == '\x1b') { // escape sequence
+                    char seq[2];
+
+                    if (read(STDIN_FILENO, &seq, 2) == 2) {
+                        if (seq[1] == 'A') { // up
+                            selected = (selected - 1 + (int)menuItems.size()) % (int)menuItems.size();
+
+                        } else if (seq[1] == 'B') { // down
+                            selected = (selected + 1) % (int)menuItems.size();
+
+                        }
+                    }
+
+                } else if (c == '\n' || c == '\r') {
+                    break; // selection made
+                } else if (c == 'q' || c == 'Q') {
+                    // allow quick quit
+                    selected = (int)menuItems.size() - 1; // Exit item index
+                    break;
+                }
+            }
+
+            term.restoreTerminal();
+            return selected;
+            
+        }
+
+        /**
+         * @brief Same shit as colorTuiMenu, but with no colors and ">" cursor
+         * @param its defined in the main functions, it contains all avilable menu items
+         */
+        static int noColorTuiMenu(std::vector<std::pair<int, std::string>> &menuItems) {
+            turnOffColor();
+            term.enableRawMode();
+
+            int selected = 0;
+            while (true) {
+                auto res = EXEC("clear"); 
+                std::cout << "Use Up/Down arrows and Enter to select an option.\n\n";
+                std::cout << "┌─────────────────────────────────────────────────────┐\n";
+                std::cout << "│" << BOLD << "                DRIVE MANAGEMENT UTILITY             " << RESET << "│\n";
+                std::cout << "├─────────────────────────────────────────────────────┤\n";
+
+                for (size_t i = 0; i < menuItems.size(); ++i) {
+
+                    std::cout << "│ ";
+
+                    // Cursor arrow
+                    if ((int)i == selected)
+                        std::cout << "> ";
+                    else
+                        std::cout << "  ";
+
+                    // Build inner content with fixed width
+                    std::ostringstream inner;
+                    inner << std::setw(2) << menuItems[i].first << ". "
+                        << std::left << std::setw(44) << menuItems[i].second;
+
+                    std::cout << inner.str();
+
+                    std::cout << "  │\n";
+                }
+
+                std::cout << "└─────────────────────────────────────────────────────┘\n";
+
+                char c = 0;
+                if (read(STDIN_FILENO, &c, 1) <= 0) continue;
+
+                if (c == '\x1b') { // escape sequence
+                    char seq[2];
+
+                    if (read(STDIN_FILENO, &seq, 2) == 2) {
+                        if (seq[1] == 'A') { // up
+                            selected = (selected - 1 + (int)menuItems.size()) % (int)menuItems.size();
+                        } else if (seq[1] == 'B') { // down
+                            selected = (selected + 1) % (int)menuItems.size();
+                        }
+                    }
+
+                } else if (c == '\n' || c == '\r') {
+                    break; // selection made
+                } else if (c == 'q' || c == 'Q') {
+                    selected = (int)menuItems.size() - 1; // Exit item index
+                    break;
+                }
+            }
+
+            term.restoreTerminal();
+            return selected; 
+        }
+
+};
+
 // ==================== Main Function ====================
 
 int main(int argc, char* argv[]) {
@@ -2599,7 +2741,6 @@ int main(int argc, char* argv[]) {
         if (a == "--dry-run" || a == "-n")                          { g_dry_run = true; continue; }
 
         else {
-
             auto cmd = cli_commands.find(argv[i]);
             
             if (cmd != cli_commands.end()) {
@@ -2616,85 +2757,34 @@ int main(int argc, char* argv[]) {
         g_dry_run = true;
     }
 
-    // ===== TUI menu =====
+
+    // ===== Menu Renderer =====
+
+    std::vector<std::pair<int, std::string>> menuItems = {
+        {1, "List Drives"},                             {2, "Format Drive"},                                {3, "Encrypt/Decrypt Drive (AES-256)"},
+        {4, "Resize Drive"},                            {5, "Check Drive Health"},                          {6, "Analyze Disk Space"},
+        {7, "Overwrite Drive Data"},                    {8, "View Drive Metadata"},                         {9, "View Info/help"},
+        {10, "Universal Disk tool (ISO/mount/...)"},    {11, "Forensic Analysis/Disk Image (experimental)"},
+        {12, "Log viewer"},                             {13, "Clone a Drive"},                              {14, "Config Editor"}, 
+        {15, "Fingerprint Drive"},                      {16, "Updater"},
+        {0, "Exit"}
+    };
+
+    // *func for no_color 
+    using menu_renderer = int(*)(std::vector<std::pair<int, std::string>> &menuItems);
+    menu_renderer menu_render_strategy = nullptr;
+
+    if (g_no_color == true) {
+        menu_render_strategy = MainMenuIO::noColorTuiMenu;
+    } else {
+        menu_render_strategy = MainMenuIO::colorTuiMenu;
+    } 
+
     term.initiateTerminosInput();
 
     bool running = true;
     while (running == true) {
-
-        // New cursor-driven menu for easier selection (arrow keys + Enter).
-        // This only replaces the selection mechanism; Some operation still call for manual input by typing.
-
-        std::vector<std::pair<int, std::string>> menuItems = {
-            {1, "List Drives"},                             {2, "Format Drive"},                                {3, "Encrypt/Decrypt Drive (AES-256)"},
-            {4, "Resize Drive"},                            {5, "Check Drive Health"},                          {6, "Analyze Disk Space"},
-            {7, "Overwrite Drive Data"},                    {8, "View Drive Metadata"},                         {9, "View Info/help"},
-            {10, "Universal Disk tool (ISO/mount/...)"},    {11, "Forensic Analysis/Disk Image (experimental)"},
-            {12, "Log viewer"},                             {13, "Clone a Drive"},                              {14, "Config Editor"}, 
-            {15, "Fingerprint Drive"},                      {16, "Updater"},
-            {0, "Exit"}
-        };
-
-        // for single-key reading
-        term.enableRawMode();
-
-        int selected = 0;
-        while (true) {
-            auto res = EXEC("clear"); 
-            std::cout << "Use Up/Down arrows and Enter to select an option.\n\n";
-            std::cout << g_THEME_COLOR << "┌─────────────────────────────────────────────────┐\n" << RESET;
-            std::cout << g_THEME_COLOR << "│" << RESET << BOLD << "              DRIVE MANAGEMENT UTILITY           " << RESET << g_THEME_COLOR << "│\n" << RESET;
-            std::cout << g_THEME_COLOR << "├─────────────────────────────────────────────────┤\n" << RESET;
-            for (size_t i = 0; i < menuItems.size(); ++i) {
-
-                std::cout << g_THEME_COLOR << "│ " << RESET;
-
-                // Build inner content with fixed width
-                std::ostringstream inner;
-                inner << std::setw(2) << menuItems[i].first << ". " << std::left << std::setw(43) << menuItems[i].second;
-                std::string innerStr = inner.str();
-
-                if (menuItems[i].first == 0) {
-                    innerStr = CYAN + innerStr + RESET;
-                }
-
-                // Apply inverse only to inner content
-                if ((int)i == selected) std::cout << INVERSE;
-                std::cout << innerStr;
-                if ((int)i == selected) std::cout << RESET;
-
-                // Print right border and newline
-                std::cout << g_THEME_COLOR << " │\n" << RESET;
-
-            }
-            std::cout  << g_THEME_COLOR << "└─────────────────────────────────────────────────┘\n" << RESET;
-
-            char c = 0;
-            if (read(STDIN_FILENO, &c, 1) <= 0) continue;
-
-            if (c == '\x1b') { // escape sequence
-                char seq[2];
-
-                if (read(STDIN_FILENO, &seq, 2) == 2) {
-                    if (seq[1] == 'A') { // up
-                        selected = (selected - 1 + (int)menuItems.size()) % (int)menuItems.size();
-
-                    } else if (seq[1] == 'B') { // down
-                        selected = (selected + 1) % (int)menuItems.size();
-
-                    }
-                }
-
-            } else if (c == '\n' || c == '\r') {
-                break; // selection made
-            } else if (c == 'q' || c == 'Q') {
-                // allow quick quit
-                selected = (int)menuItems.size() - 1; // Exit item index
-                break;
-            }
-        }
-
-        term.restoreTerminal();
+        int selected = menu_render_strategy(menuItems);
 
         int menuinput = menuItems[selected].first;
         switch (static_cast<MenuOptionsMain>(menuinput)) {
