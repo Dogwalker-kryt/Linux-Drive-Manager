@@ -44,7 +44,7 @@ but to add a safety and orchestration layer on top of them.
 
 **CLI:**
 
-- Experimental: `v0.9.19.33`  
+- Experimental: `v0.9.19.35`  
   _(refactored getMetadat() from regex parsing json to just raw parsing)_
 
 **GUI (Not getting Updated anymore):**
