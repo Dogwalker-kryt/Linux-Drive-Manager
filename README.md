@@ -191,6 +191,12 @@ touch ~/.local/share/DriveMgr/data/config.conf
 
 ## Usage
 
+The minimum recommended terminal hight and width are:
+- hight : 40
+- width : 120
+
+when not using the min recommended hight and width, this can lead to corrupted text prints
+
 Start by running the program (root required for some features):
 
 ```sh
