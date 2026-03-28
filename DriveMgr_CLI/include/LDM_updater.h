@@ -51,7 +51,7 @@ private:
 
         size_t dash_pos = ver_str.find('-');
         if (dash_pos != std::string::npos) {
-            ver_str = ver_str.substr(0, dash_pos);
+            ver_str.resize(dash_pos);
         }
 
         std::stringstream ss(ver_str);
@@ -116,7 +116,7 @@ public:
         std::string dev_suffix;
 
         if (LOCAL_VERSION.find("-dev") != std::string::npos || LOCAL_VERSION.find("_dev") != std::string::npos) {
-            dev_suffix = "[INFO] Local version contains " + BOLD + "'-dev'." + RESET + " Local version is a developer/custom/other release build\n";    
+            dev_suffix = YELLOW + "[INFO]" + RESET + "Local version contains " + BOLD + "'-dev'." + RESET + " Local version is a developer/custom/other release build\n";    
         }
 
 
@@ -127,16 +127,16 @@ public:
         int cmp = comparing_versions(local_version, remote_version);
 
         if (cmp < 0) {
-            std::cout << "\n[UPDATE] New version available: " << remote_version_str << "\n";
+            std::cout << YELLOW << "\n[UPDATE]" << RESET << "New version available: " << remote_version_str << "\n";
         } else if (cmp > 0) {
-            std::cout << "\n[INFO] Local version is newer (probably dev build or custom build)\n";
+            std::cout << YELLOW << "\n[INFO]" << RESET << "Local version is newer (probably dev build or custom build)\n";
 
             if (!dev_suffix.empty()) {
                 std::cout << dev_suffix;
             }
 
         } else {
-            std::cout << "\n[INFO] You are up to date.\n";
+            std::cout << GREEN << "\n[INFO]" << RESET << "You are up to date.\n";
 
             if (!dev_suffix.empty()) {
                 std::cout << dev_suffix;
