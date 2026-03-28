@@ -64,7 +64,7 @@ public:
         }
         
         // Execute via existing terminal functions
-        result.output = Terminalexec::execTerminalv2(final_cmd.c_str());
+        result.output = Terminalexec::execTerminalv2(final_cmd);
         result.success = check_error(result.output, cmd);
         
         if (mode == ExecMode::QUIET) {
