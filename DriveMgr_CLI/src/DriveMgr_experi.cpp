@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.20.37
+// v0.9.20.49_dev
 
 // C++ libraries
 #include <iostream>
@@ -67,7 +67,7 @@
 // ==================== global variables and definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.20.37")
+#define VERSION std::string("v0.9.20.49_dev")
 
 
 // === altTerminal Screen ===
@@ -159,7 +159,7 @@ class ListDrivesUtil {
          * @param drives use the std::vector<std::string> where you stored your fetched drives
          * @param rows use the std::verctor<Row> rows, that is only in this class avilable
          */
-        static std::string tuiForListDrives(std::vector<std::string>& drives, std::vector<ListDrivesUtil::Row> rows) {
+        static std::string tuiForListDrives(const std::vector<std::string> &drives, std::vector<ListDrivesUtil::Row> &rows) {
             term.enableRawMode();
 
             int selected = 0;
@@ -361,7 +361,7 @@ class PartitionsUtils {
         }
 
     public:
-        static void case1ResizePartition(std::vector<std::string> partitions) {
+        static void case1ResizePartition(const std::vector<std::string> &partitions) {
             std::cout << "Enter partition number (1-" << partitions.size() << "): ";
             int partNum;
             std::cin >> partNum;
@@ -373,8 +373,18 @@ class PartitionsUtils {
             std::cout << "Enter new size in MB: ";
             uint64_t newSize;
             std::cin >> newSize;
-            if (newSize <= 0) {
-                std::cout << "Invalid size!\n";
+
+            if (!std::cin) {
+                std::cin.clear();
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+                ERR(ErrorCode::InvalidInput, "Expected a positive numeric input to assign to a uint64_t integer");
+                Logger::log("[ERROR] You cannot assign a number <=0 to a uint64 interger", g_no_log);
+            }
+
+            if (newSize == 0) {
+                ERR(ErrorCode::OutOfRange, "newSize cannot be equal to 0; Expected a number greater then 0 for uint64_t integer");
+                Logger::log("[ERROR] newSize cannot be equal to 0 -> Partition Utils", g_no_log);
                 return;
             }
 
@@ -390,7 +400,7 @@ class PartitionsUtils {
             }
         }
 
-        static void case2MovePartition(std::vector<std::string> &partitions) {
+        static void case2MovePartition(const std::vector<std::string> &partitions) {
             std::cout << "Enter partition number (1-" << partitions.size() << "): ";
             int partNum;
             std::cin >> partNum;
@@ -403,8 +413,18 @@ class PartitionsUtils {
             std::cout << "Enter new start position in MB: ";
             uint64_t startPos;
             std::cin >> startPos;
-            if (startPos < 0) {
-                ERR(ErrorCode::OutOfRange, "Invalid start position entered");
+
+            if (!std::cin) {
+                std::cin.clear();
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+                ERR(ErrorCode::InvalidInput, "Expected a positive numeric input to assign to a uint64_t integer");
+                Logger::log("[ERROR] You cannot assign a number <=0 to a uint64 interger", g_no_log);
+            }
+
+            if (startPos == 0) {
+                ERR(ErrorCode::OutOfRange, "startPos cannot be equal to 0; Expected a number greater then 0 for uint64_t integer");
+                Logger::log("[ERROR] startPos cannot be equal to 0 -> Partition Utils", g_no_log);
                 return;
             }
 
@@ -420,7 +440,7 @@ class PartitionsUtils {
             }
         }
 
-        static void case3ChangePartitionType(std::vector<std::string> &partitions, const std::string &drive_name) {
+        static void case3ChangePartitionType(const std::vector<std::string> &partitions, const std::string &drive_name) {
             std::cout << "Enter partition number (1-" << partitions.size() << "): ";
             int partNum;
             std::cin >> partNum;
@@ -571,7 +591,8 @@ void analyzeDiskSpace() {
     std::cout  << CYAN << "\n------ Disk Information ------\n" << RESET;
 
     std::string disk_cmd = "lsblk -b -o NAME,SIZE,TYPE,MOUNTPOINT -n -p " + drive_name;
-    auto res = EXEC(disk_cmd); std::string disk_output = res.output;
+    auto disk_cmd_res = EXEC(disk_cmd); 
+    std::string disk_output = disk_cmd_res.output;
 
     std::istringstream iss(disk_output);
 
@@ -627,12 +648,13 @@ void analyzeDiskSpace() {
 
         if (!mount_point.empty() && mount_point != "-") {
             std::string df_cmd = "df -h '" + mount_point + "' | tail -1";
-            auto res = EXEC(df_cmd); std::string df_out = res.output;
+            auto df_res = EXEC(df_cmd); 
+            std::string df_out = df_res.output;
 
             std::istringstream dfiss(df_out);
 
-            std::string filesystem, size, used, avail, usep, mnt;
-            dfiss >> filesystem >> size >> used >> avail >> usep >> mnt;
+            std::string filesystem, df_size, used, avail, usep, mnt;
+            dfiss >> filesystem >> df_size >> used >> avail >> usep >> mnt;
 
             std::cout << "Used:        " << used << "\n";
             std::cout << "Available:   " << avail << "\n";
@@ -672,7 +694,7 @@ private:
 
 public:
     static void format_drive(const std::string& drive_to_format, const std::string& label = "", const std::string& fs_type = "ext4") {
-        if (!label.empty() && label.length() > 0) {
+        if (!label.empty()) {
             if (label.length() > 16) {
                 ERR(ErrorCode::OutOfRange, "Label too long (max 16 chars) -> format_drive()");
                 return;
@@ -1083,7 +1105,8 @@ private:
         
         std::stringstream ss;
         ss << "cryptsetup -v --cipher aes-cbc-essiv:sha256 --key-size 256 "
-           << "--key-file <(echo -n '" << std::string((char*)info.key, 32) << "') "
+           << "--key-file <(echo -n '" 
+           << std::string(reinterpret_cast<const char*>(info.key), 32) << "') "
            << "open " << drive_name << " " << encrypted_name;
         
         auto res = EXEC_SUDO(ss.str());
@@ -1124,7 +1147,8 @@ private:
         
         std::stringstream ss;
         ss << "cryptsetup -v --cipher aes-cbc-essiv:sha256 --key-size 256 "
-           << "--key-file <(echo -n '" << std::string((char*)info.key, 32) << "') "
+           << "--key-file <(echo -n '" 
+           << std::string(reinterpret_cast<const char*>(info.key), 32) << "') "
            << "open " << drive_name << " " << encrypted_name << "_decrypted";
         
         auto res = EXEC_SUDO(ss.str());
@@ -1471,7 +1495,7 @@ private:
      * @brief wrapps the orgirnal unmount() and mount() funcs to gether in one
      * @param mount_or_unmount type in mount, you will get the mount function, type in unmount you will get the unmount fukntion
      */
-    static void choose_mount_unmount(const std::string mount_or_unmount) {
+    static void choose_mount_unmount(const std::string &mount_or_unmount) {
         std::cout << "Enter the drive you want to " << mount_or_unmount << "\n";
         const std::string drive_name = ListDrivesUtil::listDrives(true);
 
@@ -1570,11 +1594,6 @@ private:
         }
     }
 
-    static int ExitReturn(bool& running) {
-        running = false;
-        return 0;   
-    }
-
 public:
     static void mainMountUtil() {
         enum MenuOptions {
@@ -1643,10 +1662,6 @@ public:
 
 class ForensicAnalysis {
 private:
-    static int exit() {
-        return 0;
-    }
-
     static void CreateDiskImage() {
         try {
             const std::string driveName = ListDrivesUtil::listDrives(true);
@@ -2425,7 +2440,7 @@ private:
     static std::string fingerprinting(const std::string& combined_metadata) {
         unsigned char hash[SHA256_DIGEST_LENGTH];
 
-        SHA256((unsigned char*)combined_metadata.c_str(), combined_metadata.size(), hash);
+        SHA256(reinterpret_cast<const unsigned char*>(combined_metadata.c_str()), combined_metadata.size(), hash);
 
         std::string fingerprint;
 
@@ -2588,7 +2603,7 @@ class MainMenuIO {
          * @brief Its the menu Tui selection with colors
          * @param menuItems its defined in the main functions, it contains all avilable menu items
          */
-        static int colorTuiMenu(std::vector<std::pair<int, std::string>> &menuItems) {
+        static int colorTuiMenu(const std::vector<std::pair<int, std::string>> &menuItems) {
             term.enableRawMode();
 
             int selected = 0;
@@ -2656,7 +2671,7 @@ class MainMenuIO {
          * @brief Same shit as colorTuiMenu, but with no colors and ">" cursor
          * @param its defined in the main functions, it contains all avilable menu items
          */
-        static int noColorTuiMenu(std::vector<std::pair<int, std::string>> &menuItems) {
+        static int noColorTuiMenu(const std::vector<std::pair<int, std::string>> &menuItems) {
             turnOffColor();
             term.enableRawMode();
 
@@ -2728,7 +2743,7 @@ int main(int argc, char* argv[]) {
     const std::map<std::string, std::function<void()>> cli_commands = {
         {"--list-drives", []()          { if (!checkRoot()) return; ListDrivesUtil::listDrives(false); }},
         {"--format-drive", []()         { if (!checkRoot()) return; formatDrive(); }},
-        {"--encrypt-decrypt", []()      { if (!checkRoot()) return; DeEncrypting::main(); }},
+        {"--encrypt-decrypt", []()      { std::cout << "en and decryption are tempraliry disabled due to security reasons"; }}, // if (!checkRoot()) return; DeEncrypting::main();
         {"--resize-drive", []()         { if (!checkRoot()) return; resizeDrive(); }},
         {"--check-drive-health", []()   { if (!checkRoot()) return; checkDriveHealth(); }},
         {"--analyze-disk-space", []()   { analyzeDiskSpace(); }},
@@ -2780,7 +2795,7 @@ int main(int argc, char* argv[]) {
     // ===== Menu Renderer =====
 
     std::vector<std::pair<int, std::string>> menuItems = {
-        {1, "List Drives"},                             {2, "Format Drive"},                                {3, "Encrypt/Decrypt Drive (AES-256)"},
+        {1, "List Drives"},                             {2, "Format Drive"},                                {3, "Encrypt/Decrypt Drive (AES-256) (disabled)"},
         {4, "Resize Drive"},                            {5, "Check Drive Health"},                          {6, "Analyze Disk Space"},
         {7, "Overwrite Drive Data"},                    {8, "View Drive Metadata"},                         {9, "View Info/help"},
         {10, "Universal Disk tool (ISO/mount/...)"},    {11, "Forensic Analysis/Disk Image (experimental)"},
@@ -2790,7 +2805,7 @@ int main(int argc, char* argv[]) {
     };
 
     // *func for no_color 
-    using menu_renderer = int(*)(std::vector<std::pair<int, std::string>> &menuItems);
+    using menu_renderer = int(*)(const std::vector<std::pair<int, std::string>> &menuItems);
     menu_renderer menu_render_strategy = nullptr;
 
     if (g_no_color == true) {
@@ -2823,7 +2838,7 @@ int main(int argc, char* argv[]) {
             case FORMATDRIVE:           { if (!checkRoot()) {menuQues(running);} else {formatDrive(); menuQues(running);} break; }
 
             // 3. En-Decrypt Drive
-            case ENCRYPTDECRYPTDRIVE:   { if (!checkRoot()) {menuQues(running);} else {DeEncrypting::main(); menuQues(running);} break; }
+            case ENCRYPTDECRYPTDRIVE:   { std::cout << "De- Encryption are tempraliry disabled due to safety reasons\n"; break; } // if (!checkRoot()) {menuQues(running);} else {DeEncrypting::main(); menuQues(running);}
 
             // 4. Resize Drive
             case RESIZEDRIVE:           { if (!checkRoot()) {menuQues(running);} else {resizeDrive(); menuQues(running);} break; }
