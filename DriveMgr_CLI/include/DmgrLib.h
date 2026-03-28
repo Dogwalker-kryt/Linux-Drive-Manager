@@ -140,7 +140,7 @@ public:
                 return;
             }
 
-            struct passwd* pw = getpwnam(username);
+            const struct passwd* pw = getpwnam(username);
             if (!pw) {
                 std::cerr << "[Logger Error] Failed to get home directory for user: " << username << "\n";
                 return;
@@ -180,15 +180,6 @@ public:
 extern struct termios oldt, newt;
 
 /**
- * @brief Handles std::runtime_error exceptions by printing the error message to the standard error stream.
- * @param e The std::runtime_error exception to handle. (e.what() will be printed)
- * @note This function is intended to be used as a centralized error handling mechanism for runtime errors in the DriveMgr_CLI project.
- */
-void handle_STD_Runtime_Error(const std::runtime_error& e) {
-    std::cerr << "[RUNTIME_ERROR] " << e.what() << std::endl;
-}
-
-/**
  * @brief A helper function to throw a std::runtime_error with a given error message.
  *        This function also resets the terminal settings to ensure that the terminal is in a consistent state before throwing the error.
  * @param error_message The error message to include in the std::runtime_error exception.
@@ -206,19 +197,6 @@ void ldm_runtime_error(const std::string& error_message) {
 class Terminalexec {
 public:
     /**
-     * @brief Execute a shell command and return stdout
-     * @param cmd C-string containing the command to execute
-     * @return stdout output from the command
-     * 
-     * Forks a shell process and captures all stdout output.
-     * Original version of the command execution wrapper.
-     */
-    static std::string execTerminal(const char* cmd) {
-        ExecResult r = run_command(std::string(cmd));
-        return r.stdout_str;
-    }
-    //v2 
-    /**
      * @brief Execute a shell command and return stdout (v2)
      * @param command std::string containing the command to execute
      * @return stdout output from the command
@@ -228,22 +206,6 @@ public:
      */
     static std::string execTerminalv2(const std::string &command) {
         ExecResult r = run_command(command);
-        return r.stdout_str;
-    }
-    //v3
-    /**
-     * @brief Execute a shell command with error handling and output trimming (v3)
-     * @param cmd std::string containing the command to execute
-     * @return Trimmed stdout output, or empty string on error (exit_code != 0)
-     * 
-     * Latest version with error checking and automatic newline trimming.
-     * Returns empty string if command fails, making it safe for direct use.
-     */
-    static std::string execTerminalv3(const std::string& cmd) {
-        ExecResult r = run_command(cmd);
-        if (r.exit_code != 0) return "";
-        // Trim trailing newlines
-        while (!r.stdout_str.empty() && (r.stdout_str.back() == '\n' || r.stdout_str.back() == '\r')) r.stdout_str.pop_back();
         return r.stdout_str;
     }
 };
@@ -365,7 +327,8 @@ bool askForConfirmation(const std::string &prompt) {
 
 /**
  * @brief Handles file paths by prepending the user's home directory to a given relative path.
- * @param file_path The relative file path to be handled (e.g., "/.config/myapp/config.dat").
+ * @param file_path The relative file path to be handled in home dir (e.g., "/.config/myapp/config.dat").
+ * @returns the ready to use file path with
  */
 std::string filePathHandler(const std::string &file_path) {
     const char* sudo_user = getenv("SUDO_USER");
@@ -378,7 +341,7 @@ std::string filePathHandler(const std::string &file_path) {
         return "";
     }
 
-    struct passwd* pw = getpwnam(username);
+    const struct passwd* pw = getpwnam(username);
 
     if (!pw) {
         std::cerr << RED << "[ERROR] Could not get home directory for user: " << username << RESET << "\n";
