@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.20.36
+// v0.9.20.37
 
 // C++ libraries
 #include <iostream>
@@ -67,7 +67,7 @@
 // ==================== global variables and definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.20.36")
+#define VERSION std::string("v0.9.20.37")
 
 
 // === altTerminal Screen ===
@@ -310,7 +310,7 @@ class ListDrivesUtil {
 // ========== Partition Management ========== 
 
 class PartitionsUtils {
-    public:
+    private:
         // 1
         static bool resizePartition(const std::string& device, uint64_t newSizeMB) {
             try {
@@ -357,6 +357,113 @@ class PartitionsUtils {
                 ERR(ErrorCode::ProcessFailure, "Failed to change partition type");
                 Logger::log("[ERROR] Failed to change partition type -> PartitionUtils::changePartitionType()", g_no_log);
                 return false;
+            }
+        }
+
+    public:
+        static void case1ResizePartition(std::vector<std::string> partitions) {
+            std::cout << "Enter partition number (1-" << partitions.size() << "): ";
+            int partNum;
+            std::cin >> partNum;
+            if (partNum < 1 || partNum > (int)partitions.size()) {
+                ERR(ErrorCode::OutOfRange, "Invalid partition number selected");
+                return;
+            }
+
+            std::cout << "Enter new size in MB: ";
+            uint64_t newSize;
+            std::cin >> newSize;
+            if (newSize <= 0) {
+                std::cout << "Invalid size!\n";
+                return;
+            }
+
+            askForConfirmation("[Warning] Resizing partitions can lead to data loss.\nAre you sure? ");
+
+            if (PartitionsUtils::resizePartition(partitions[partNum-1], newSize)) {
+                std::cout << "Partition resized successfully!\n";
+
+            } else {
+                ERR(ErrorCode::ProcessFailure, "Failed to resize partition");
+                Logger::log("[ERROR] Failed to resize partition", g_no_log);
+
+            }
+        }
+
+        static void case2MovePartition(std::vector<std::string> &partitions) {
+            std::cout << "Enter partition number (1-" << partitions.size() << "): ";
+            int partNum;
+            std::cin >> partNum;
+
+            if (partNum < 1 || partNum > (int)partitions.size()) {
+                ERR(ErrorCode::OutOfRange, "Invalid partition number selected");
+                return;
+            }
+
+            std::cout << "Enter new start position in MB: ";
+            uint64_t startPos;
+            std::cin >> startPos;
+            if (startPos < 0) {
+                ERR(ErrorCode::OutOfRange, "Invalid start position entered");
+                return;
+            }
+
+            askForConfirmation("[Warning] Moving partitions can lead to data loss.\nAre you sure? ");
+
+            if (movePartition(partitions[partNum-1], partNum, startPos)) {
+                std::cout << "Partition moved successfully!\n";
+
+            } else {
+                ERR(ErrorCode::ProcessFailure, "Failed to move partition -> movePartition()");
+                Logger::log("[ERROR] Failed to move partition", g_no_log);
+
+            }
+        }
+
+        static void case3ChangePartitionType(std::vector<std::string> &partitions, const std::string &drive_name) {
+            std::cout << "Enter partition number (1-" << partitions.size() << "): ";
+            int partNum;
+            std::cin >> partNum;
+
+            if (partNum < 1 || partNum > (int)partitions.size()) {
+                ERR(ErrorCode::OutOfRange, "Invalid partition number selected");
+                return;
+            }
+
+            std::cout << "┌───────────────────────────┐\n";
+            std::cout << "│ Available partition types │\n";
+            std::cout << "├───────────────────────────┤\n";
+            std::cout << "│ 1. Linux (83)             │\n";
+            std::cout << "│ 2. NTFS (7)               │\n";
+            std::cout << "│ 3. FAT32 (b)              │\n";
+            std::cout << "│ 4. Linux swap (82)        │\n";
+            std::cout << "└───────────────────────────┘\n";
+            std::cout << "Enter type number: ";
+
+            int typeNum;
+            std::cin >> typeNum;
+            std::string newType;
+
+            switch (typeNum) {
+                case 1: newType = "83"; break;
+                case 2: newType = "7"; break;
+                case 3: newType = "b"; break;
+                case 4: newType = "82"; break;
+                default:
+                    ERR(ErrorCode::OutOfRange, "Invalid partition type selected");
+                    break;
+            }
+
+            if (!newType.empty()) {
+                askForConfirmation("[Warning] Changing partition type can make data inaccessible.\nAre you sure? ");
+
+                if (changePartitionType(drive_name, partNum, newType)) {
+                    std::cout << "Partition type changed successfully!\n";
+
+                } else {
+                    ERR(ErrorCode::ProcessFailure, "Failed to change partition type -> changePartitionType()");
+                    Logger::log("[ERROR] Failed to change partition type", g_no_log);
+                }
             }
         }
 };
@@ -434,117 +541,23 @@ void listpartisions() {
 
     switch (choice) {
         case 1: {
-            std::cout << "Enter partition number (1-" << partitions.size() << "): ";
-            int partNum;
-            std::cin >> partNum;
-            if (partNum < 1 || partNum > (int)partitions.size()) {
-                ERR(ErrorCode::OutOfRange, "Invalid partition number selected");
-                break;
-            }
-
-            std::cout << "Enter new size in MB: ";
-            uint64_t newSize;
-            std::cin >> newSize;
-            if (newSize <= 0) {
-                std::cout << "Invalid size!\n";
-                break;
-            }
-
-            askForConfirmation("[Warning] Resizing partitions can lead to data loss.\nAre you sure? ");
-
-            if (PartitionsUtils::resizePartition(partitions[partNum-1], newSize)) {
-                std::cout << "Partition resized successfully!\n";
-
-            } else {
-                ERR(ErrorCode::ProcessFailure, "Failed to resize partition");
-                Logger::log("[ERROR] Failed to resize partition", g_no_log);
-
-            }
+            PartitionsUtils::case1ResizePartition(partitions);
             break;
-            
         }
+
         case 2: {
-            std::cout << "Enter partition number (1-" << partitions.size() << "): ";
-            int partNum;
-            std::cin >> partNum;
-
-            if (partNum < 1 || partNum > (int)partitions.size()) {
-                ERR(ErrorCode::OutOfRange, "Invalid partition number selected");
-                break;
-            }
-
-            std::cout << "Enter new start position in MB: ";
-            uint64_t startPos;
-            std::cin >> startPos;
-            if (startPos < 0) {
-                ERR(ErrorCode::OutOfRange, "Invalid start position entered");
-                break;
-            }
-
-            askForConfirmation("[Warning] Moving partitions can lead to data loss.\nAre you sure? ");
-
-            if (PartitionsUtils::movePartition(partitions[partNum-1], partNum, startPos)) {
-                std::cout << "Partition moved successfully!\n";
-
-            } else {
-                ERR(ErrorCode::ProcessFailure, "Failed to move partition -> movePartition()");
-                Logger::log("[ERROR] Failed to move partition", g_no_log);
-
-            }
+            PartitionsUtils::case2MovePartition(partitions);
             break;
-
         }
+
         case 3: {
-            std::cout << "Enter partition number (1-" << partitions.size() << "): ";
-            int partNum;
-            std::cin >> partNum;
-
-            if (partNum < 1 || partNum > (int)partitions.size()) {
-                ERR(ErrorCode::OutOfRange, "Invalid partition number selected");
-                break;
-            }
-
-            std::cout << "┌───────────────────────────┐\n";
-            std::cout << "│ Available partition types │\n";
-            std::cout << "├───────────────────────────┤\n";
-            std::cout << "│ 1. Linux (83)             │\n";
-            std::cout << "│ 2. NTFS (7)               │\n";
-            std::cout << "│ 3. FAT32 (b)              │\n";
-            std::cout << "│ 4. Linux swap (82)        │\n";
-            std::cout << "└───────────────────────────┘\n";
-            std::cout << "Enter type number: ";
-
-            int typeNum;
-            std::cin >> typeNum;
-            std::string newType;
-
-            switch (typeNum) {
-                case 1: newType = "83"; break;
-                case 2: newType = "7"; break;
-                case 3: newType = "b"; break;
-                case 4: newType = "82"; break;
-                default:
-                    ERR(ErrorCode::OutOfRange, "Invalid partition type selected");
-                    break;
-            }
-
-            if (!newType.empty()) {
-                askForConfirmation("[Warning] Changing partition type can make data inaccessible.\nAre you sure? ");
-
-                if (PartitionsUtils::changePartitionType(drive_name, partNum, newType)) {
-                    std::cout << "Partition type changed successfully!\n";
-
-                } else {
-                    ERR(ErrorCode::ProcessFailure, "Failed to change partition type -> changePartitionType()");
-                    Logger::log("[ERROR] Failed to change partition type", g_no_log);
-
-                }
-            }
+            PartitionsUtils::case3ChangePartitionType(partitions, drive_name);
             break;
-
         }
+
         case 4:
             return;
+            
         default:
             ERR(ErrorCode::OutOfRange, "Invalid option selected in partition menu");
     }
@@ -2562,6 +2575,12 @@ class MainMenuIO {
         static void turnOffColor() {
             g_SELECTION_COLOR = RESET;
             g_THEME_COLOR = RESET;
+            RED = RESET;
+            CYAN = RESET;
+            YELLOW = RESET;
+            GREEN = RESET;
+            MAGENTA = RESET;
+            BLUE = RESET;
         }
 
     public:
