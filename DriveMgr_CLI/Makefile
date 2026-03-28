@@ -1,31 +1,39 @@
+# Compiler
 CXX := g++
 
+# Directories
 SRC_DIR := src
 INC_DIR := include
 
-# Output binary name
-TARGET := DriveMgr_CLI
+# Output binary
+TARGET := DMgr_CLI
 
 # Flags
 CXXFLAGS := -std=c++17 -I$(INC_DIR)
-LDFLAGS := -lssl -lcrypto
+LDFLAGS := -flto -s -O2 -lssl -lcrypto
 
 # Source and object files
 SRCS := $(wildcard $(SRC_DIR)/*.cpp)
-OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(SRC_DIR)/%.o,$(SRCS))
+SRCS := $(filter-out src/command_exec.cpp, $(SRCS))
+SRCS := $(filter-out src/exec_cmd.cpp, $(SRCS))
+OBJS := $(SRCS:.cpp=.o)
 
 # Default rule
 all: $(TARGET)
 
 # Link final binary
 $(TARGET): $(OBJS)
-	$(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
+    $(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
+    @rm -f $(OBJS)
 
 # Compile each .cpp into .o
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
-	@mkdir -p $(SRC_DIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+%.o: %.cpp
+    $(CXX) $(CXXFLAGS) -c $< -o $@
 
-# finished
+# Clean
+clean:
+    rm -f $(OBJS) $(TARGET)
+
+# Run
 run: all
-	./$(TARGET)
+    ./$(TARGET)
