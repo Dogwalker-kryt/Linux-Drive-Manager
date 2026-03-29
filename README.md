@@ -44,7 +44,7 @@ but to add a safety and orchestration layer on top of them.
 
 **CLI:**
 
-- Experimental: `v0.9.20.52`  
+- Experimental: `v0.9.21.52`  
   _(updated the Logger, for easyer use)_
 
 **GUI (Not getting Updated anymore):**
