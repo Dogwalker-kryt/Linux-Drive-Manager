@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.20.52
+// v0.9.21.52
 
 // C++ libraries
 #include <iostream>
@@ -63,11 +63,10 @@
 #include "../include/exec_cmd.h"
 #include "../include/LDM_updater.h"
 
-// │ ├ ┤ ┘ └ ┐ ┌ ─
 // ==================== global variables and definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.20.52")
+#define VERSION std::string("v0.9.21.52")
 
 
 // === altTerminal Screen ===
@@ -999,368 +998,289 @@ void resizeDrive() {
 }
 
 // ========== Drive Encryption ========== 
+// new USB only encryption/decryption impl
 
-class EnDecryptionUtils {
-    private:
-        static std::string createSecureKeyFile(const unsigned char* key) {
-            std::string tmp_key_file = "/tmp/drivemgr_key_" + std::to_string(getpid());
-            std::ofstream kf(tmp_key_file, std::ios::binary | std::ios::trunc);
+class USBEnDeCryptionUtils {
+private:
+    enum class Metadata {
+        TYPE,
+        VENDOR,
+        TRAN
+    };
 
-            if (!kf) {
-                std::cerr << RED << "[Error] Unable to create temporary key file\n" << RESET;
-                Logger::error("Unable to create temporary key file", g_no_log);
-                ldm_runtime_error("Unable to create temporary key file -> createSecureKeyFile()");
-            }
+    struct MetadataHash {
+        std::size_t operator()(Metadata m) const noexcept {
+            return static_cast<std::size_t>(m);
+        }
+    };
 
-            kf.write(reinterpret_cast<const char*>(key), 32);
-            chmod(tmp_key_file.c_str(), S_IRUSR | S_IWUSR);
-            return tmp_key_file;
+
+    static std::optional<std::string> isValidDrive(const std::string &drive_name) {
+        std::string cmd = "lsblk -o TYPE,VENDOR,TRAN -P -p " + drive_name; 
+        auto res = EXEC(cmd);
+
+        if (!res.success || res.output.empty()) {
+
+            ERR(ErrorCode::ProcessFailure, "lsblk failed to succed");
+            Logger::error("lsblk failed to succed", g_no_log);
+            return std::nullopt;
+
         }
 
-    public:
-        static void saveEncryptionInfo(const EncryptionInfo& info) {
-            std::ofstream file(KEY_STORAGE_PATH, std::ios::app | std::ios::binary);
+        std::unordered_map<Metadata, std::string, MetadataHash> meta;
 
-            if (!file) {
-                Logger::error("Cannot open key storage file: " + KEY_STORAGE_PATH + " -> saveEncryptionInfo()", g_no_log);
-                ERR(ErrorCode::FileNotFound, "Cannot open key storage file: " + KEY_STORAGE_PATH + " -> saveEncryptionInfo()");
-                return;
-            }
+        auto extract = [&](const std::string& key) -> std::string {
+            std::string search = key + "=\"";
+            size_t start = res.output.find(search);
+            if (start == std::string::npos) return "N/A";
 
-            auto salt = generateSalt();
-            auto obfKey = obfuscate(info.key, sizeof(info.key), salt.data(), salt.size());
-            auto obfIV = obfuscate(info.iv, sizeof(info.iv), salt.data(), salt.size());
+            start += search.length();
+            size_t end = res.output.find("\"", start);
+            if (end == std::string::npos) return "N/A";
 
-            // Write drive name (null-terminated)
-            char driveName[256] = {0};
-            strncpy(driveName, info.driveName.c_str(), 255);
-            file.write(driveName, sizeof(driveName));
-            uint32_t saltLen = salt.size();
+            return res.output.substr(start, end - start);
+        };
 
-            file.write(reinterpret_cast<const char*>(&saltLen), sizeof(saltLen));
-            file.write(reinterpret_cast<const char*>(salt.data()), salt.size());
+        meta[Metadata::TYPE] = extract("TYPE");
+        meta[Metadata::VENDOR] = extract("VENDOR");
+        std::string tran = meta[Metadata::TRAN] = extract("TRAN");
 
-            //·  − Write obfuscated key and IV
-            file.write(reinterpret_cast<const char*>(obfKey.data()), obfKey.size());
-            file.write(reinterpret_cast<const char*>(obfIV.data()), obfIV.size());
+        std::transform(tran.begin(), tran.end(), tran.begin(), ::tolower);
 
-            file.close();
-            Logger::info("Encryption info saved (salted and obfuscated) for: " + info.driveName, g_no_log);
+        if (meta[Metadata::TYPE] != "disk") {
+
+            ERR(ErrorCode::InvalidDevice, "Drive is not a Disk " + drive_name);
+            Logger::error("Drive is not a disk " + drive_name + "; -> isValidDrive USBEncryption", g_no_log);
+            return std::nullopt;
+
         }
 
-        static bool loadEncryptionInfo(const std::string& driveName, EncryptionInfo& info) {
-            std::ifstream file(KEY_STORAGE_PATH, std::ios::binary);
+        if (meta[Metadata::VENDOR] == "N/A" || meta[Metadata::VENDOR] == "ATA") {
 
-            if (!file) {
-                Logger::error("Cannot open key storage file: " + KEY_STORAGE_PATH + " -> loadEncryptionInfo()", g_no_log);
-                ERR(ErrorCode::FileNotFound, "Cannot open key storage file: " + KEY_STORAGE_PATH + " -> loadEncryptionInfo()");
+            ERR(ErrorCode::InvalidDevice, "Drive is an internal disk " + drive_name + "; Expected USB Drive");
+            Logger::error("Drive is an internal Disk " + drive_name + "; -> isValidDrive USBEncryption", g_no_log);
+            return std::nullopt;
+                        
+        }
+
+        if (tran != "usb") {
+
+            ERR(ErrorCode::InvalidDevice, "Drive is not an USB Device " + drive_name + "; Expected USB Drive");
+            Logger::error("Drive is an internal Disk " + drive_name + "; -> isValidDrive USBEncryption", g_no_log);
+            return std::nullopt;
+                        
+        }
+
+        return drive_name;
+    }
+
+    static bool confirmationKeyInput() {
+        std::cout << "To proceed with anything you need to retype the following confirmation key:\n";
+
+        std::string confirmation_key = confirmationKeyGenerator();
+        std::cout << "\n" << confirmation_key << "\n";
+
+        std::cout << "\nretype the key:\n";
+
+        std::string user_retyped_key;
+        std::getline(std::cin, user_retyped_key);
+
+        if (user_retyped_key != confirmation_key) {
+
+            std::cout << YELLOW << "[INFO] " << RESET << "The key you retyped doesnt match the original key\n" << "Process Aborted due to invalid input\n";
+            Logger::info("The retyped key doesnt match the original key; Process Aborted due to invalid input", g_no_log);
+
+            std::cout << "Do you want to retry? (y/N)\n";
+
+            char confirm_if_retry = 'n';
+            std::cin >> confirm_if_retry;
+
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+            if (!std::cin) {
+                std::cin.clear();
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+                ERR(ErrorCode::InvalidInput, "Input expected to be lower case single char 'n' or 'y'");
+                Logger::error("invalid input " + std::string(1, confirm_if_retry), g_no_log);
                 return false;
             }
 
-            char storedDriveName[256];
-            while (file.read(storedDriveName, sizeof(storedDriveName))) {
+            confirm_if_retry = std::tolower(confirm_if_retry);
 
-                // Read salt length and salt
-                uint32_t saltLen;
-                file.read(reinterpret_cast<char*>(&saltLen), sizeof(saltLen));
-                std::vector<unsigned char> salt(saltLen);
-                file.read(reinterpret_cast<char*>(salt.data()), saltLen);
-
-                // Read obfuscated key and IV
-                std::vector<unsigned char> obfKey(32);
-                std::vector<unsigned char> obfIV(16);
-
-                file.read(reinterpret_cast<char*>(obfKey.data()), 32);
-                file.read(reinterpret_cast<char*>(obfIV.data()), 16);
-
-                // Deobfuscate
-                auto key = deobfuscate(obfKey.data(), 32, salt.data(), saltLen);
-                auto iv = deobfuscate(obfIV.data(), 16, salt.data(), saltLen);
-
-                if (driveName == storedDriveName) {
-                    std::copy(key.begin(), key.end(), info.key);
-                    std::copy(iv.begin(), iv.end(), info.iv);
-
-                    info.driveName = driveName;
-
-                    Logger::info("Encryption info loaded and deobfuscated for: " + driveName, g_no_log);
-
-                    return true;
-                }
+            if (confirm_if_retry != 'n' && confirm_if_retry != 'y') {
+                ERR(ErrorCode::InvalidInput, "Expected input = 'n' or 'y'");
+                Logger::error("invalid input " + std::string(1, confirm_if_retry), g_no_log);
+                return false;
             }
 
-            Logger::error("No encryption info found for: " + driveName, g_no_log);
-            return false;
-        }
-
-        static void generateKeyAndIV(unsigned char* key, unsigned char* iv) {
-            if (!RAND_bytes(key, 32) || !RAND_bytes(iv, 16)) {
-                Logger::error("Failed to generate random key/IV for encryption -> generateKeyAndIV()", g_no_log);
-                ldm_runtime_error("Failed to generate random key/IV");
-            }
-        }
-
-        // dear past me, what the actual f*ck was the thinking process behind this sh*t???
-        // now can my future me deal with this f*cking sh*t! f*ck you past me!
-        // this whole shit doesnt make sence, why do you have in EnDecryption also encrypt and decrypt that are even worse then this sh*t here???
-
-        // static void encryptDrive(const std::string& drive_name) {
-        //     EncryptionInfo info;
-        //     info.driveName = drive_name;
-
-        //     generateKeyAndIV(info.key, info.iv);
-        //     saveEncryptionInfo(info);
-
-        //     std::string tmp_key_file = createSecureKeyFile(info.key);
-
-        //     std::stringstream ss;
-
-        //     ss << "cryptsetup -v --cipher aes-cbc-essiv:sha256 --key-size 256 "
-        //        << "--key-file " << tmp_key_file << " open " << drive_name
-        //        << " encrypted_" << std::filesystem::path(drive_name).filename().string();
-
-        //     Logger::log("[INFO] Encrypting drive: " + drive_name, g_no_log);
-
-        //     auto res = EXEC_SUDO(ss.str());
-        //     std::string output = res.output;
-
-        //     // remove temp key file
-        //     unlink(tmp_key_file.c_str());
-
-        //     if (!res.success || output.empty()) {
-        //         Logger::log("[ERROR] Encryption failed for drive: " + drive_name + " -> encryptDrive()", g_no_log);
-        //         ERR(ErrorCode::ProcessFailure, "Failed to Encrypt: " + drive_name);
-        //         return;
-        //     }
-
-        //     std::cout << GREEN << "[SUCCESS]" << RESET << " Drive encrypted successfully. The decryption key is stored in " << KEY_STORAGE_PATH << "\n";
-        //     Logger::log("[INFO] Drive encrypted successsfully: " + drive_name + " -> encryptDrive()", g_no_log);
-        // }
-
-        // static void decryptDrive(const std::string& driveName) {
-        //     EncryptionInfo info;
-
-        //     if (!loadEncryptionInfo(driveName, info)) {
-        //         Logger::log("[ERROR] No encryption key found for " + driveName + " -> decryptDrive()", g_no_log);
-        //         ldm_runtime_error("No encryption key found for drive: " + driveName);
-        //     }
-
-        //     std::string tmp_key_file = createSecureKeyFile(info.key);
-
-        //     std::stringstream ss;
-        //     ss << "cryptsetup -v --cipher aes-cbc-essiv:sha256 --key-size 256 "
-        //        << "--key-file " << tmp_key_file << " open " << driveName << " decrypted_"
-        //        << std::filesystem::path(driveName).filename().string();
-
-        //     auto res = EXEC_SUDO(ss.str());
-        //     std::string output = res.output;
-
-        //     // remove temp key file
-        //     unlink(tmp_key_file.c_str());
-
-        //     if (!res.success || output.empty()) {
-
-        //         Logger::log("[ERROR] Decryption failed " + output + " -> decryptDrive()", g_no_log);
-        //         ldm_runtime_error("Decryption failed: " + output + " -> decryptDrive()");
-        //     }
-
-        //     std::cout << GREEN << "Drive decrypted successfully.\n" << RESET;
-        //     Logger::log("[INFO] Drive decrypted successfully -> decryptDrive()", g_no_log);
-        // }
-
-        static void encryptDrive(const std::string& driveName) {
-            EncryptionInfo info;
-            info.driveName = driveName;
-
-            // Generate key + IV
-            generateKeyAndIV(info.key, info.iv);
-
-            // Save metadata (salt, obfuscated key, etc.)
-            saveEncryptionInfo(info);
-
-            // Create secure temporary key file
-            std::string tmpKeyFile = createSecureKeyFile(info.key);
-
-            // Mapper name (clean, consistent)
-            std::string mapperName = "enc_" + std::filesystem::path(driveName).filename().string();
-
-            // Build cryptsetup command (abstracted)
-            std::stringstream cmd;
-            cmd << "cryptsetup luksFormat " << driveName
-                << " --key-file " << tmpKeyFile;
-
-            Logger::info("Formatting drive as encrypted: " + driveName, g_no_log);
-
-            auto formatRes = EXEC_SUDO(cmd.str());
-            unlink(tmpKeyFile.c_str());
-
-            if (!formatRes.success) {
-                Logger::error("luksFormat failed for: " + driveName, g_no_log);
-                ERR(ErrorCode::ProcessFailure, "Failed to encrypt drive: " + driveName);
-                return;
+            if (confirm_if_retry == 'n') {
+                std::cout << YELLOW << "[INFO] " << RESET
+                        << "User aborted retry\n";
+                Logger::info("Key retry was aborted by the user", g_no_log);
+                return false;
             }
 
-            Logger::info("luksFormat successful, opening encrypted device", g_no_log);
+            std::string confirm_key2 = confirmationKeyGenerator();
 
-            // Recreate key file for opening
-            tmpKeyFile = createSecureKeyFile(info.key);
+            std::cout << "[last chance] Retype the following confirmation key:\n";
+            std::cout << "\n" << confirm_key2 << "\n";
 
-            std::stringstream openCmd;
-            openCmd << "cryptsetup open " << driveName << " " << mapperName
-                    << " --key-file " << tmpKeyFile;
+            std::string confirm_key2_input;
+            std::getline(std::cin, confirm_key2_input);
 
-            auto openRes = EXEC_SUDO(openCmd.str());
-            unlink(tmpKeyFile.c_str());
-
-            if (!openRes.success) {
-                Logger::error("Failed to open encrypted mapper for: " + driveName, g_no_log);
-                ERR(ErrorCode::ProcessFailure, "Failed to open encrypted mapper");
-                return;
+            if (confirm_key2_input != confirm_key2) {
+                std::cout << YELLOW << "[INFO] " << RESET
+                        << "The key you retyped doesnt match the original key\n"
+                        << "Process Aborted due to invalid input\n";
+                Logger::info("The retyped key doesnt match the original key; Process Aborted due to invalid input", g_no_log);
+                return false;
             }
 
-            std::cout << GREEN << "[SUCCESS]" << RESET
-                    << " Drive encrypted and opened as /dev/mapper/" << mapperName << "\n";
-
-            Logger::success("Drive encrypted successfully: " + driveName, g_no_log);
+            return true;
         }
 
-        static void decryptDrive(const std::string& driveName) {
-            EncryptionInfo info;
-
-            if (!loadEncryptionInfo(driveName, info)) {
-                Logger::error("No encryption metadata found for " + driveName, g_no_log);
-                ldm_runtime_error("No encryption key found for drive: " + driveName);
-            }
-
-            // Create temp key file
-            std::string tmpKeyFile = createSecureKeyFile(info.key);
-
-            // Consistent mapper name
-            std::string mapperName = "dec_" + std::filesystem::path(driveName).filename().string();
-
-            std::stringstream cmd;
-            cmd << "cryptsetup open " << driveName << " " << mapperName
-                << " --key-file " << tmpKeyFile;
-
-            auto res = EXEC_SUDO(cmd.str());
-            unlink(tmpKeyFile.c_str());
-
-            if (!res.success) {
-                Logger::error("Decryption failed for " + driveName, g_no_log);
-                ldm_runtime_error("Failed to decrypt/open drive: " + driveName);
-            }
-
-            std::cout << GREEN << "[SUCCESS]" << RESET
-                    << " Drive opened as /dev/mapper/" << mapperName << "\n";
-
-            Logger::success("Drive decrypted successfully -> decryptDrive()", g_no_log);
-        }
-
-
-
-        // salting
-        static std::vector<unsigned char> generateSalt(size_t length = 16)  {
-            std::vector<unsigned char> salt(length);
-
-            if (!RAND_bytes(salt.data(), length)) {
-                Logger::error("Failed to generate salt", g_no_log);
-                ldm_runtime_error("Failed to generate salt -> generateSalt()");
-            }
-
-            return salt;
-        }
-
-        static std::vector<unsigned char> obfuscate(const unsigned char* data, size_t dataLen, const unsigned char* salt, size_t saltLen) {
-            std::vector<unsigned char> result(dataLen);
-
-            for (size_t i = 0; i < dataLen; ++i) {
-                result[i] = data[i] ^ salt[i % saltLen];
-            }
-
-            return result;
-        }
-
-        static std::vector<unsigned char> deobfuscate(const unsigned char* data, size_t dataLen, const unsigned char* salt, size_t saltLen) {
-            return obfuscate(data, dataLen, salt, saltLen);
-        }
-        
-};
-
-class DeEncrypting {
-private:
-    /**
-     * @brief local Confirmation key abstraction for En- Decrypting. 
-     * @param operation will print the entered string  
-     * @return true if success
-     */
-    static bool confirm_with_key(const std::string& operation) {
-        std::string key = confirmationKeyGenerator();
-        std::cout << YELLOW << operation << RESET << "\n";
-        std::cout << "Confirmation key:\n" << key << "\n";
-        std::cout << "Enter the key to proceed:\n";
-        
-        std::string input;
-        std::cin >> input;
-        
-        if (input != key) {
-            ERR(ErrorCode::InvalidInput, "Invalid confirmation key");
-            Logger::error("Invalid confirmation key", g_no_log);
-            return false;
-        }
         return true;
     }
 
-    static void encrypting() {
-        const std::string drive_name = ListDrivesUtil::listDrives(true);
+    static void encryptUSBDrive(const std::string &drive_name) {
+        std::cout << BOLD << "[Encryption of " << drive_name << "]" << RESET << "\n" ;
+        std::string passphrase, passphrase_retype;
         
-        std::cout << YELLOW << "[Warning] Encrypt " << drive_name << "? (y/n)" << RESET << "\n";
-        char confirm;
-        std::cin >> confirm;
-        if (confirm != 'y' && confirm != 'Y') {
-            std::cout << "[Info] Cancelled\n";
-            Logger::info("Encryption cancelled", g_no_log);
-            return;
-        }
-        
-        if (!confirm_with_key("[Warning] Confirm encryption")) return;
-        
-        EnDecryptionUtils::encryptDrive(drive_name);
-        
-        return;
-    }
+        std::cout << "\nEnter a Passphrase for the encrypted USB:\n";
+        std::getline(std::cin, passphrase);
+
+        std::cout << "\nRetype your Passphrase you just entered:\n";
+        std::getline(std::cin, passphrase_retype);
     
-    static void decrypting() {
-        const std::string drive_name = ListDrivesUtil::listDrives(true);
-        
-        std::cout << "[Warning] Decrypt " << drive_name << "? (y/n)\n";
-        char confirm;
-        std::cin >> confirm;
-        if (confirm != 'y' && confirm != 'Y') {
-            std::cout << "[Info] Cancelled\n";
-            Logger::info("Decryption cancelled", g_no_log);
+        if (passphrase.empty() || passphrase_retype.empty()) {
+
+            ERR(ErrorCode::InvalidInput, "The passphrase you entered is emtpy; Expecting non empty string");
+            Logger::error("The passphrase you entered is emtpy", g_no_log);
             return;
+
         }
-        
-        if (!confirm_with_key("[Warning] Confirm decryption")) return;
-        
-        EnDecryptionUtils::decryptDrive(drive_name);
-        
-        return;
+
+        if (passphrase != passphrase_retype) {
+
+            ERR(ErrorCode::InvalidInput, "The passphrases you entered doesnt match; Expecting similar passphrase input");
+            Logger::error("The passphrases you entered doesnt match: p1:'" + passphrase + "' p2:'" + passphrase_retype + "'", g_no_log);
+            return;
+
+        }
+    
+        std::string cryptsetup_cmd = "echo \"" + passphrase + "\" | cryptsetup luksFormat " + drive_name + " -q";
+        auto cryptsetup_res = EXEC_SUDO(cryptsetup_cmd);
+    
+        // TODO: open, format, mount, close
+    }
+
+
+
+    static void cryptionAltMenu(const std::string &drive_name) {
+        std::cout << "Do you want to Encrypt or Decrypt your USB? (e/d):\n";
+
+        char e_or_d;
+        std::cin >> e_or_d;
+
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+        if (!std::cin) {
+
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+            ERR(ErrorCode::InvalidInput, "Input expected to be lower case single char 'n' or 'y'");
+            Logger::error("invalid input " + std::string(1, e_or_d), g_no_log);
+            return;
+            
+        }
+
+        e_or_d = std::tolower(e_or_d);
+
+        if (e_or_d != 'e' && e_or_d != 'd') {
+
+            ERR(ErrorCode::InvalidInput, "Expected intput = 'd' or 'e'");
+            Logger::error("invalid input ", g_no_log);
+            return;
+
+        }
+
+        if (e_or_d == 'e') {
+
+            encryptUSBDrive(drive_name);
+
+        } else if (e_or_d == 'd') {
+
+            //decryptUSBDrive(drive_name);
+
+        }
     }
 
 public:
-    static void main() {
-        std::cout << "Encrypt (e) or Decrypt (d)?\n";
-        char choice;
-        std::cin >> choice;
+    static void mainUsbEnDecryption() {
+        std::cout << "Choose your USB Drive you want to En/Decrypt\n";
+
+        const std::string drive_name = ListDrivesUtil::listDrives(true);
+
+        const auto val_drive_name = isValidDrive(drive_name);
+    
+        if (!val_drive_name.has_value()) {
+
+            ERR(ErrorCode::InvalidDevice, "'" + drive_name + "' Couldnt get validated; Expected USB Drive");
+            Logger::error("'" + drive_name + "' Couldnt get validated", g_no_log);
+            return;
+
+        }
+    
+        std::cout << YELLOW << "[Warning] " << RESET << "Are you sure you want to en- or decrypt: '" << drive_name << "' ? (y/N)\n";
+    
+        char confirmation = 'n';
+        std::cin >> confirmation;
+
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+        if (!std::cin) {
+
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+            ERR(ErrorCode::InvalidInput, "Input expected to be lower case single char 'n' or 'y'");
+            Logger::error("invalid input " + std::string(1, confirmation), g_no_log);
+            return;
+            
+        }
         
-        if (choice == 'e' || choice == 'E') {
-            encrypting();
-        } else if (choice == 'd' || choice == 'D') {
-            decrypting();
-        } else {
-            ERR(ErrorCode::OutOfRange, "Invalid char input");
-            Logger::error("Invalid input for encryption/decryption choice", g_no_log);
+        confirmation = std::tolower(confirmation);
+
+        if (confirmation != 'n' && confirmation != 'y') {
+
+            ERR(ErrorCode::InvalidInput, "Expected intput = 'n' or 'y'");
+            Logger::error("invalid input " + std::string(1, confirmation), g_no_log);
+            return;
+
+        }
+
+        bool is_confirm_key_true = confirmationKeyInput();
+
+        if (!is_confirm_key_true) {
+
+            Logger::info("ConfirmKeyInput is false, aborting operation", g_no_log);
+            return;
+
+        }
+
+        if (confirmation == 'y') {
+
+            std::cout << "Proceeding...\n";
+            cryptionAltMenu(drive_name);
+
+        } else if (confirmation == 'n') {
+
+            std::cout << YELLOW << "[INFO] " << RESET << "En- Decryption with '" << drive_name << "' was aborted by the user\n";
+            Logger::info("En- Decryption with '" + drive_name + "' was aborted by the user", g_no_log);
+            return;
+
         }
     }
 };
