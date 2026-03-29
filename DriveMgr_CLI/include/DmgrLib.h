@@ -113,7 +113,27 @@ class TerminosIO {
 extern bool g_no_log;
 
 class Logger {
-public:
+private:
+    enum class LogType {
+        ERROR,
+        WARNING,
+        INFO,
+        SUCCESS,
+        DRYRUN,
+        EXEC
+    };
+
+    static inline const char* logMessage(LogType log_type) {
+        switch (log_type) {
+            case LogType::ERROR: return "[ERROR] ";
+            case LogType::WARNING: return "[WARNING] ";
+            case LogType::INFO: return "[INFO] ";
+            case LogType::SUCCESS: return "[SUCCESS] ";
+            case LogType::DRYRUN: return "[DRY-RUN] ";
+            case LogType::EXEC: return "[EXEC] ";
+        }
+    }
+
     /**
      * @brief Log an operation with timestamp to the DriveMgr log file
      * @param operation Description of the operation/event to log
@@ -121,7 +141,7 @@ public:
      * Logs to ~/.local/share/DriveMgr/data/log.dat with format: [DD-MM-YYYY HH:MM] event: <operation>
      * Creates log directory if it doesn't exist. Respects SUDO_USER for proper file ownership.
      */
-    static void log(const std::string& operation, const bool g_no_log) {
+    static void log(LogType type, const std::string& operation, const bool g_no_log) {
         if (g_no_log == false) {
             auto now = std::chrono::system_clock::now();
             std::time_t currentTime = std::chrono::system_clock::to_time_t(now);
@@ -129,7 +149,7 @@ public:
             std::strftime(timeStr, sizeof(timeStr), "%d-%m-%Y %H:%M", std::localtime(&currentTime));
             //"%d-%m-%Y %M:%H" // new
             //"%Y-%m-%d %H:%M:%S" // old
-            std::string logMsg = "[" + std::string(timeStr) + "] event: " + operation;
+            std::string logMsg = "[" + std::string(timeStr) + "] event: " + logMessage(type) + operation;
 
             const char* sudo_user = std::getenv("SUDO_USER");
             const char* user_env = std::getenv("USER");
@@ -168,6 +188,61 @@ public:
         } else {
             return;
         }
+    }
+public:
+
+    /**
+     * @brief Logs and Error
+     * @param msg the Message to be logged in the log file
+     * @param g_no_log use the global g_no_log variable for this
+     */
+    static void error(const std::string &msg, bool g_no_log) {
+        log(LogType::ERROR, msg, g_no_log);
+    }
+
+    /**
+     * @brief Logs an Warning
+     * @param msg the Message to be logged in the log file
+     * @param g_no_log use the global g_no_log variable for this
+     */
+    static void warning(const std::string &msg, bool g_no_log) {
+        log(LogType::WARNING, msg, g_no_log);
+    }
+
+    /**
+     * @brief Logs an  Info
+     * @param msg the Message to be logged in the log file
+     * @param g_no_log use the global g_no_log variable for this
+     */
+    static void info(const std::string &msg, bool g_no_log) {
+        log(LogType::INFO, msg, g_no_log);
+    }
+
+    /**
+     * @brief Logs an Successs
+     * @param msg the Message to be logged in the log file
+     * @param g_no_log use the global g_no_log variable for this
+     */    
+    static void success(const std::string &msg, bool g_no_log) {
+        log(LogType::SUCCESS, msg, g_no_log);
+    }
+
+    /**
+     * @brief Logs an dry run
+     * @param msg the Message to be logged in the log file
+     * @param g_no_log use the global g_no_log variable for this
+     */ 
+    static void dry_run(const std::string &msg, bool g_no_log) {
+        log(LogType::DRYRUN, msg, g_no_log);
+    }
+
+    /**
+     * @brief Logs an exec
+     * @param msg the Message to be logged in the log file
+     * @param g_no_log use the global g_no_log variable for this
+     */ 
+    static void exec(const std::string &msg, bool g_no_log) {
+        log(LogType::EXEC, msg, g_no_log);
     }
 };
 
@@ -318,7 +393,7 @@ bool askForConfirmation(const std::string &prompt) {
 
     if (confirm != 'Y' && confirm != 'y') {
         std::cout << BOLD << "[INFO] Operation cancelled\n" << RESET;
-        Logger::log("[INFO] Operation cancelled", g_no_color);
+        Logger::info("Operation cancelled", g_no_color);
         return false;
     } 
 
@@ -337,7 +412,7 @@ std::string filePathHandler(const std::string &file_path) {
 
     if (!username) {
         std::cerr << RED << "[ERROR] Could not determine username.\n" << RESET;
-        Logger::log("[ERROR] Could not determine username", g_no_log);
+        Logger::error("Could not determine username", g_no_log);
         return "";
     }
 
@@ -345,7 +420,7 @@ std::string filePathHandler(const std::string &file_path) {
 
     if (!pw) {
         std::cerr << RED << "[ERROR] Could not get home directory for user: " << username << RESET << "\n";
-        Logger::log("[ERROR] Failed to get home directory for user: " + std::string(username), g_no_log);
+        Logger::error("Failed to get home directory for user: " + std::string(username), g_no_log);
         return "";
     }
 
