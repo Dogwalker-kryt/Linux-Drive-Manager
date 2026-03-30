@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.21.52
+// v0.9.21.63
 
 // C++ libraries
 #include <iostream>
@@ -63,10 +63,11 @@
 #include "../include/exec_cmd.h"
 #include "../include/LDM_updater.h"
 
+// │ ├ ┤ ┘ └ ┐ ┌ ─
 // ==================== global variables and definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.21.52")
+#define VERSION std::string("v0.9.21.63")
 
 
 // === altTerminal Screen ===
@@ -1014,10 +1015,9 @@ private:
         }
     };
 
-
     static std::optional<std::string> isValidDrive(const std::string &drive_name) {
         std::string cmd = "lsblk -o TYPE,VENDOR,TRAN -P -p " + drive_name; 
-        auto res = EXEC(cmd);
+        auto res = EXEC_QUIET(cmd);
 
         if (!res.success || res.output.empty()) {
 
@@ -1075,7 +1075,7 @@ private:
     }
 
     static bool confirmationKeyInput() {
-        std::cout << "To proceed with anything you need to retype the following confirmation key:\n";
+        std::cout << "\nTo proceed with anything you need to retype the following confirmation key:\n";
 
         std::string confirmation_key = confirmationKeyGenerator();
         std::cout << "\n" << confirmation_key << "\n";
@@ -1123,7 +1123,7 @@ private:
 
             std::string confirm_key2 = confirmationKeyGenerator();
 
-            std::cout << "[last chance] Retype the following confirmation key:\n";
+            std::cout << "\n[last chance] Retype the following confirmation key:\n";
             std::cout << "\n" << confirm_key2 << "\n";
 
             std::string confirm_key2_input;
@@ -1144,10 +1144,12 @@ private:
     }
 
     static void encryptUSBDrive(const std::string &drive_name) {
-        std::cout << BOLD << "[Encryption of " << drive_name << "]" << RESET << "\n" ;
+        //passphrases
+        std::cout << BOLD << "\n[Encryption of " << drive_name << "]" << RESET << "\n" ;
         std::string passphrase, passphrase_retype;
         
-        std::cout << "\nEnter a Passphrase for the encrypted USB:\n";
+        std::cout << RED << "\n[WARNING] " << RESET << "You should save or remember the passphrase!\n The DMgr will NOT! save it\n";
+        std::cout << "\nEnter a Passphrase for the encrypted USB\n";
         std::getline(std::cin, passphrase);
 
         std::cout << "\nRetype your Passphrase you just entered:\n";
@@ -1169,16 +1171,191 @@ private:
 
         }
     
-        std::string cryptsetup_cmd = "echo \"" + passphrase + "\" | cryptsetup luksFormat " + drive_name + " -q";
+        // pass passphrases to crypsetup
+        std::string cryptsetup_cmd = "echo \"" + passphrase + "\" | cryptsetup luksFormat " + drive_name + " --key-file=- -q";
         auto cryptsetup_res = EXEC_SUDO(cryptsetup_cmd);
     
-        // TODO: open, format, mount, close
+        if (!cryptsetup_res.success) {
+
+            ERR(ErrorCode::ProcessFailure, "Failed to execute cryptsetup on: " + drive_name + " with passphrase: " +  passphrase);
+            Logger::error("Failed to execute cryptsetup on: " + drive_name, g_no_log);
+            return;
+
+        }
+
+        // open encrypted device
+        std::string mapper_name = "enc_usb";
+        std::string mapper_path = "/dev/mapper/" + mapper_name;
+
+        std::string cryptsetup_open_cmd = "echo \"" + passphrase + "\" | cryptsetup open " + drive_name + " " + mapper_name + " --key-file=-";
+        auto cryptsetup_open_res = EXEC_SUDO(cryptsetup_open_cmd);
+
+        if (!cryptsetup_open_res.success) {
+
+            ERR(ErrorCode::ProcessFailure, "Failed to open drive crypsetup on: " + drive_name);
+            Logger::error("Failed to open drive with cryptsetup on: " + drive_name, g_no_log);
+            return;
+
+        }       
+
+        // When you need a diffrent FS then change it here
+        std::string mkfs_ext4_cmd = "mkfs.ext4 " + mapper_path;
+        auto mkfs_res = EXEC_SUDO(mkfs_ext4_cmd);
+
+        if (!mkfs_res.success) {
+
+            ERR(ErrorCode::ProcessFailure, "Failed to make FS on " + mapper_name);
+            Logger::error("Failed to make FS on " + mapper_name, g_no_log);
+            return;            
+
+        }
+
+        // mount encrypted device
+        std::string mount_cmd = "mount " + mapper_path + " /media/" + mapper_name;
+        auto mk_mountpoint_res = EXEC_SUDO("mkdir -p /media/" + mapper_name);
+        auto mount_res = EXEC_SUDO(mount_cmd);
+
+        if (!mk_mountpoint_res.success) {
+
+            ERR(ErrorCode::ProcessFailure, "Failed to create mountpoint");
+            Logger::error("Failed to create mountpoint", g_no_log);
+            return;     
+
+        }
+
+        if (!mount_res.success) {
+
+            ERR(ErrorCode::ProcessFailure, "Failed to mount " + mapper_name);
+            Logger::error("Failed to mount " + mapper_name, g_no_log);
+            return;            
+
+        }    
+
+        // close 
+        auto unmount_cryptsetup_res = EXEC_SUDO("umount /media/" + mapper_name);
+
+        if (!unmount_cryptsetup_res.success) {
+
+            ERR(ErrorCode::ProcessFailure, "Failed to unmount /media/" + mapper_name);
+            Logger::error("Failed to unmount /media/" + mapper_name, g_no_log);
+            return;
+
+        }
+
+        std::string close_cryptsetup_cmd = "cryptsetup close " + mapper_name;
+        auto close_cryptsetup_res = EXEC_SUDO(close_cryptsetup_cmd);
+
+        if (!close_cryptsetup_res.success) {
+
+            ERR(ErrorCode::ProcessFailure, "Failed to close " + mapper_name);
+            Logger::error("Failed to close " + mapper_name, g_no_log);
+            return;            
+
+        }
+
+        std::fill(passphrase.begin(), passphrase.end(), '\0');
+        std::fill(passphrase_retype.begin(), passphrase_retype.end(), '\0');
+
+        std::cout << GREEN << "\n[SUCCESS] " << RESET << "Encryption completed successfully\n";
+        Logger::success("Encryption completed successfully", g_no_log);
+        // TODO: maby custom listdrives func for printing only usb's; make that passphrse dont leak into shell
     }
 
+    static void decryptUSBDrive(const std::string &drive_name) {
+        std::cout << BOLD << "\n[Decryption / Unlock of " << drive_name << "]" << RESET << "\n";
 
+        std::string passphrase;
+
+        std::cout << RED << "\n[WARNING] " << RESET << "You must enter the correct passphrase to unlock this encrypted USB.\n";
+
+        std::cout << "\nEnter the Passphrase:\n";
+        std::getline(std::cin, passphrase);
+
+        if (passphrase.empty()) {
+
+            ERR(ErrorCode::InvalidInput, "Passphrase empty; expected non-empty string");
+            Logger::error("Passphrase empty", g_no_log);
+            return;
+
+        }
+
+        // mapper name
+        std::string mapper_name = "enc_usb";
+        std::string mapper_path = "/dev/mapper/" + mapper_name;
+
+        // cryptsetup open
+        std::string cryptsetup_open_cmd = "echo \"" + passphrase + "\" | cryptsetup open " + drive_name + " " + mapper_name + " --key-file=-";
+
+        auto cryptsetup_open_res = EXEC_SUDO(cryptsetup_open_cmd);
+
+        if (!cryptsetup_open_res.success) {
+
+            ERR(ErrorCode::ProcessFailure, "Failed to open encrypted device with cryptsetup");
+            Logger::error("Failed to open encrypted device with cryptsetup", g_no_log);
+            return;
+
+        }
+
+        // mount
+        auto mk_mountpoint_res = EXEC_SUDO("mkdir -p /media/" + mapper_name);
+
+        if (!mk_mountpoint_res.success) {
+
+            ERR(ErrorCode::ProcessFailure, "Failed to create mountpoint");
+            Logger::error("Failed to create mountpoint", g_no_log);
+            return;
+
+        }
+
+        std::string mount_cmd = "mount " + mapper_path + " /media/" + mapper_name;
+        auto mount_res = EXEC_SUDO(mount_cmd);
+
+        if (!mount_res.success) {
+
+            ERR(ErrorCode::ProcessFailure, "Failed to mount decrypted device");
+            Logger::error("Failed to mount decrypted device", g_no_log);
+            return;
+
+        }
+
+        std::cout << GREEN << "\n[SUCCESS] " << RESET  << "USB successfully unlocked and mounted at /media/" << mapper_name << "\n";
+        Logger::success("USB successfully unlocked and mounted", g_no_log);
+
+        std::cout << YELLOW << "[INFO] " << RESET << "Press ENTER when you are done using the USB to unmount and lock it again.\n";
+        std::cin.get();
+
+        // unmount
+        auto unmount_res = EXEC_SUDO("umount /media/" + mapper_name);
+
+        if (!unmount_res.success) {
+
+            ERR(ErrorCode::ProcessFailure, "Failed to unmount decrypted device");
+            Logger::error("Failed to unmount decrypted device", g_no_log);
+            return;
+
+        }
+
+        // close
+        std::string close_cmd = "cryptsetup close " + mapper_name;
+        auto close_res = EXEC_SUDO(close_cmd);
+
+        if (!close_res.success) {
+
+            ERR(ErrorCode::ProcessFailure, "Failed to close mapper device");
+            Logger::error("Failed to close mapper device", g_no_log);
+            return;
+
+        }
+
+        // wipe passphrase from memory
+        std::fill(passphrase.begin(), passphrase.end(), '\0');
+
+        std::cout << GREEN << "\n[SUCCESS] " << RESET << "USB successfully locked and unmounted.\n";
+        Logger::success("USB successfully locked and unmounted", g_no_log);
+    }
 
     static void cryptionAltMenu(const std::string &drive_name) {
-        std::cout << "Do you want to Encrypt or Decrypt your USB? (e/d):\n";
+        std::cout << "\nDo you want to Encrypt or Decrypt your USB? (e/d):\n";
 
         char e_or_d;
         std::cin >> e_or_d;
@@ -1209,17 +1386,19 @@ private:
         if (e_or_d == 'e') {
 
             encryptUSBDrive(drive_name);
+            return;
 
         } else if (e_or_d == 'd') {
 
-            //decryptUSBDrive(drive_name);
+            decryptUSBDrive(drive_name);
+            return;
 
         }
     }
 
 public:
     static void mainUsbEnDecryption() {
-        std::cout << "Choose your USB Drive you want to En/Decrypt\n";
+        std::cout << "\nChoose your USB Drive you want to En/Decrypt\n";
 
         const std::string drive_name = ListDrivesUtil::listDrives(true);
 
@@ -1233,7 +1412,7 @@ public:
 
         }
     
-        std::cout << YELLOW << "[Warning] " << RESET << "Are you sure you want to en- or decrypt: '" << drive_name << "' ? (y/N)\n";
+        std::cout << YELLOW << "\n[Warning] " << RESET << "Are you sure you want to en- or decrypt: '" << drive_name << "' ? (y/N)\n";
     
         char confirmation = 'n';
         std::cin >> confirmation;
@@ -1272,7 +1451,7 @@ public:
 
         if (confirmation == 'y') {
 
-            std::cout << "Proceeding...\n";
+            std::cout << "\nProceeding...\n";
             cryptionAltMenu(drive_name);
 
         } else if (confirmation == 'n') {
@@ -1339,8 +1518,8 @@ void overwriteDriveData() {
     std::cout << " \n";
 
     try {
-        auto res_urandom = EXEC_SUDO("dd if=/dev/urandom of=" + drive_to_operate_on + " bs=1M status=progress && sync"); 
-        auto res_zero = EXEC_SUDO("dd if=/dev/zero of=" + drive_to_operate_on + " bs=1M status=progress && sync"); 
+        auto res_urandom = EXEC_SUDO("dd if=/dev/urandom of=" + drive_to_operate_on + " bs=8M status=progress && sync"); 
+        auto res_zero = EXEC_SUDO("dd if=/dev/zero of=" + drive_to_operate_on + " bs=8M status=progress && sync"); 
             
         if (!res_urandom.success && !res_zero.success) {
 
@@ -1760,7 +1939,7 @@ private:
             // Probe partitions
             auto partprobe_res = EXEC_SUDO("partprobe " + restore_device_name);
 
-            if (!partprobe_res.success || partprobe_res.output.empty()) {
+            if (!partprobe_res.success) { 
 
                 ERR(ErrorCode::ProcessFailure, "Couldnt partition the drive: " + restore_device_name);
                 Logger::error("Couldnt partition the drive: " + restore_device_name, g_no_log);
@@ -3003,7 +3182,7 @@ int main(int argc, char* argv[]) {
     const std::map<std::string, std::function<void()>> cli_commands = {
         {"--list-drives", []()          { if (!checkRoot()) return; ListDrivesUtil::listDrives(false); }},
         {"--format-drive", []()         { if (!checkRoot()) return; formatDrive(); }},
-        {"--encrypt-decrypt", []()      { std::cout << "en and decryption are tempraliry disabled due to security reasons"; }}, // if (!checkRoot()) return; DeEncrypting::main();
+        {"--encrypt-decrypt", []()      { if (!checkRoot()) return; USBEnDeCryptionUtils::mainUsbEnDecryption(); }}, 
         {"--resize-drive", []()         { if (!checkRoot()) return; resizeDrive(); }},
         {"--check-drive-health", []()   { if (!checkRoot()) return; checkDriveHealth(); }},
         {"--analyze-disk-space", []()   { analyzeDiskSpace(); }},
@@ -3053,7 +3232,7 @@ int main(int argc, char* argv[]) {
     // ===== Menu Renderer =====
 
     std::vector<std::pair<int, std::string>> menuItems = {
-        {1, "List Drives"},                             {2, "Format Drive"},                                {3, "Encrypt/Decrypt Drive (AES-256) (disabled)"},
+        {1, "List Drives"},                             {2, "Format Drive"},                                {3, "Encrypt/Decrypt USB Drives"},
         {4, "Resize Drive"},                            {5, "Check Drive Health"},                          {6, "Analyze Disk Space"},
         {7, "Overwrite Drive Data"},                    {8, "View Drive Metadata"},                         {9, "View Info/help"},
         {10, "Universal Disk tool (ISO/mount/...)"},    {11, "Forensic Analysis/Disk Image (experimental)"},
@@ -3096,7 +3275,7 @@ int main(int argc, char* argv[]) {
             case FORMATDRIVE:           { if (!checkRoot()) {menuQues(running);} else {formatDrive(); menuQues(running);} break; }
 
             // 3. En-Decrypt Drive
-            case ENCRYPTDECRYPTDRIVE:   { std::cout << "De- Encryption are tempraliry disabled due to safety reasons\n"; break; } // if (!checkRoot()) {menuQues(running);} else {DeEncrypting::main(); menuQues(running);}
+            case ENCRYPTDECRYPTDRIVE:   { if (!checkRoot()) {menuQues(running);} else {USBEnDeCryptionUtils::mainUsbEnDecryption(); menuQues(running);} break; } 
 
             // 4. Resize Drive
             case RESIZEDRIVE:           { if (!checkRoot()) {menuQues(running);} else {resizeDrive(); menuQues(running);} break; }
