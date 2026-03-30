@@ -44,8 +44,8 @@ but to add a safety and orchestration layer on top of them.
 
 **CLI:**
 
-- Experimental: `v0.9.21.52`  
-  _(updated the Logger, for easyer use)_
+- Experimental: `v0.9.21.63`  
+  _(finished EnDecrypt Drive for USB only (becarefull of data loss, if you do somthing wrong, yes you can do somthing wrong there))_
 
 **GUI (Not getting Updated anymore):**
 
@@ -109,7 +109,7 @@ config.conf        - Example config
 
 - List all drives and partitions
 - Format, label, and set filesystem type
-- Drive encryption (AES-256) and decryption
+- Drive encryption and decryption for USB Drives 
 - Partition resizing
 - S.M.A.R.T. drive health checking
 - Partition management
