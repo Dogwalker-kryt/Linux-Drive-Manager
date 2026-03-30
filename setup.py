@@ -133,7 +133,6 @@ def install_Dmgr():
         ("SECURITY.md", "other"),
         ("CONTRIBUTING.md", "other"),
         (".github", "other"),
-        ("log and key file/key.bin", "data"),
         ("log and key file/log.dat", "data"),
         ("Lume/Lume", "bin/Lume"),
         ("Lume/main_Lume.cpp", "bin/other_src"),
