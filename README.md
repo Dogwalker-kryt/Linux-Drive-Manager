@@ -44,8 +44,8 @@ but to add a safety and orchestration layer on top of them.
 
 **CLI:**
 
-- Experimental: `v0.9.21.63`  
-  _(finished EnDecrypt Drive for USB only (becarefull of data loss, if you do somthing wrong, yes you can do somthing wrong there))_
+- Experimental: `v0.9.21.86`  
+  _(new input validation)_
 
 **GUI (Not getting Updated anymore):**
 
