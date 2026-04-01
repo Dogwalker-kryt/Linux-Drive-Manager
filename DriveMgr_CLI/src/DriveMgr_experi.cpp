@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.21.63
+// v0.9.21.85_dev
 
 // C++ libraries
 #include <iostream>
@@ -67,7 +67,7 @@
 // ==================== global variables and definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.21.63")
+#define VERSION std::string("v0.9.21.85_dev")
 
 
 // === altTerminal Screen ===
@@ -510,8 +510,7 @@ class PartitionsUtils {
             std::cout << "└───────────────────────────┘\n";
             std::cout << "Enter type number: ";
 
-            int typeNum;
-            std::cin >> typeNum;
+            auto typeNum = validateIntInput(1, 4);
             std::string newType;
 
             if (!std::cin) {
@@ -524,7 +523,7 @@ class PartitionsUtils {
 
             }
 
-            switch (typeNum) {
+            switch (*typeNum) {
                 case 1: newType = "83"; break;
                 case 2: newType = "7"; break;
                 case 3: newType = "b"; break;
@@ -628,20 +627,10 @@ void listpartisions() {
     std::cout << "└────────────────────────────────┘\n";
     std::cout << "Enter your choice: ";
 
-    int choice;
-    std::cin >> choice;
+    auto choice = validateIntInput(1, 4);
+    if (!choice.has_value()) return;
 
-    if (!std::cin) {
-        
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        ERR(ErrorCode::InvalidInput, "Expected input is a integer with max value 4 and min value 1");
-        Logger::error("Expected input is a integer", g_no_log);
-        return;
-
-    }
-
-    switch (choice) {
+    switch (*choice) {
         case 1: {
             PartitionsUtils::case1ResizePartition(partitions);
             break;
@@ -777,10 +766,10 @@ private:
         
         std::cout << msg.str();
 
-        std::string confirmation = "n";
-        std::getline(std::cin, confirmation);
+        auto confirmation = validateCharInput({'y', 'n'});
+        if (!confirmation.has_value()) return;
         
-        if (confirmation != "y" && confirmation != "Y") {
+        if (confirmation != 'y') {
 
             std::cout << RED << "[INFO] " << RESET << "Formatting cancelled by user\n";
             Logger::info("Formatting cancelled for drive: " + drive, g_no_log);
@@ -856,21 +845,10 @@ void formatDrive() {
     std::cout << "└─────────────────────────────────────────────────┘\n";
     std::cout << "INFO: Standard formatting will automaticlly use ext4 filesystem\n";
 
-    int fdinput;
-    std::cin >> fdinput;
+    auto fdinput = validateIntInput(1, 3);
+    if (!fdinput.has_value()) return;
 
-    if (!std::cin) {
-
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
-        ERR(ErrorCode::InvalidInput, "Expected input is an int");
-        Logger::error("Invalid input", g_no_log);
-        return;
-
-    }
-
-    switch (fdinput) {
+    switch (*fdinput) {
         case 1:
             {
                 std::cout << "Choose a Drive to Format\n";
@@ -1092,31 +1070,11 @@ private:
 
             std::cout << "Do you want to retry? (y/N)\n";
 
-            char confirm_if_retry = 'n';
-            std::cin >> confirm_if_retry;
-
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
-            if (!std::cin) {
-                std::cin.clear();
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
-                ERR(ErrorCode::InvalidInput, "Input expected to be lower case single char 'n' or 'y'");
-                Logger::error("invalid input " + std::string(1, confirm_if_retry), g_no_log);
-                return false;
-            }
-
-            confirm_if_retry = std::tolower(confirm_if_retry);
-
-            if (confirm_if_retry != 'n' && confirm_if_retry != 'y') {
-                ERR(ErrorCode::InvalidInput, "Expected input = 'n' or 'y'");
-                Logger::error("invalid input " + std::string(1, confirm_if_retry), g_no_log);
-                return false;
-            }
+            auto confirm_if_retry = validateCharInput({'y', 'n'});
+            if (!confirm_if_retry.has_value()) return;
 
             if (confirm_if_retry == 'n') {
-                std::cout << YELLOW << "[INFO] " << RESET
-                        << "User aborted retry\n";
+                std::cout << YELLOW << "[INFO] " << RESET << "User aborted retry\n";
                 Logger::info("Key retry was aborted by the user", g_no_log);
                 return false;
             }
@@ -1184,6 +1142,7 @@ private:
         }
 
         // open encrypted device
+        std::cout << "[INFO] open encrypted device...\n";
         std::string mapper_name = "enc_usb";
         std::string mapper_path = "/dev/mapper/" + mapper_name;
 
@@ -1211,6 +1170,7 @@ private:
         }
 
         // mount encrypted device
+        std::cout << "[INFO] mounting encrypted device...\n";
         std::string mount_cmd = "mount " + mapper_path + " /media/" + mapper_name;
         auto mk_mountpoint_res = EXEC_SUDO("mkdir -p /media/" + mapper_name);
         auto mount_res = EXEC_SUDO(mount_cmd);
@@ -1232,6 +1192,7 @@ private:
         }    
 
         // close 
+        std::cout << "[INFO] closing encrypted device...\n";
         auto unmount_cryptsetup_res = EXEC_SUDO("umount /media/" + mapper_name);
 
         if (!unmount_cryptsetup_res.success) {
@@ -1472,22 +1433,10 @@ void overwriteDriveData() {
 
     std::cout << YELLOW << "[WARNING]" << RESET << " Are you sure you want to overwrite all data on " << BOLD << drive_to_operate_on << RESET << "? This action cannot be undone! (y/n)\n";
         
-    char confirm;
-    std::cin >> confirm;
+    auto confirm = validateCharInput({'y', 'n'});
+    if (!confirm.has_value()) return;
 
-    if (!std::cin) {
-
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
-        ERR(ErrorCode::InvalidInput, "Expected input is a single char");
-        Logger::error("Invalid input", g_no_log);
-        return;
-    }
-
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
-    if (confirm != 'y' && confirm != 'Y') {
+    if (confirm != 'y') {
 
         std::cout << BOLD << "[Overwriting aborted]" << RESET << " The Overwriting process of " << drive_to_operate_on << " was interupted by user\n";
         Logger::info("Overwriting process aborted by user for drive: " + drive_to_operate_on, g_no_log);
@@ -1777,23 +1726,10 @@ private:
 
             std::cout << "Are you sure you want to burn " << iso_path << " to " << drive_name << "? (y/n)\n";
 
-            char confirmation;
-            std::cin >> confirmation;
+            auto confirmation = validateCharInput({'y', 'n'});
+            if (!confirmation.has_value()) return;
 
-            if (!std::cin) {
-
-                std::cin.clear();
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
-                ERR(ErrorCode::InvalidInput, "Expected input is a single char");
-                Logger::error("Invalid input", g_no_log);
-                return;
-
-            }
-
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
-            if (confirmation != 'y' && confirmation != 'Y') {
+            if (confirmation != 'y') {
 
                 std::cout << YELLOW << "[INFO] Operation cancelled\n" << RESET;
                 Logger::info("Burn operation cancelled by user -> BurnISOToStorageDevice()", g_no_log);
@@ -1806,7 +1742,7 @@ private:
             std::cout << confirmation_key << "\n";
                         
             std::string user_key_input;
-            std::cin >> user_key_input;
+            std::getline(std::cin, user_key_input);
 
             if (user_key_input != confirmation_key) {
 
@@ -1847,6 +1783,7 @@ private:
             ERR(ErrorCode::ProcessFailure, "Burn operation failed: " + std::string(e.what()));
             Logger::error("BurnISOToStorageDevice() exception: " + std::string(e.what()), g_no_log);
             return;
+
         }
     }
 
@@ -1855,36 +1792,55 @@ private:
      * @param mount_or_unmount type in mount, you will get the mount function, type in unmount you will get the unmount fukntion
      */
     static void choose_mount_unmount(const std::string &mount_or_unmount) {
-        std::cout << "Enter the drive you want to " << mount_or_unmount << "\n";
-        const std::string drive_name = ListDrivesUtil::listDrives(true);
-
-        std::string cmd;
-
         if (mount_or_unmount == "mount") {
 
-            cmd = "mount " + drive_name + " /mnt/" + std::filesystem::path(drive_name).filename().string();
+            std::cout << "Enter the drive you want to " << mount_or_unmount << "\n";
+            const std::string drive_name = ListDrivesUtil::listDrives(true);
+
+            std::cout << "\nEnter the name for the drive under the name its mounted under '/mnt/':\n";
+
+            std::string mount_name;
+            std::getline(std::cin, mount_name);
+
+            std::string mount_cmd = "mount " + drive_name + " /mnt/" + mount_name;
+            auto mount_res = EXEC_SUDO(mount_cmd);
+             
+            if (!mount_res.success) {
+
+                ERR(ErrorCode::ProcessFailure, "Couldnt mount '" + drive_name + "' at '/mnt/" + mount_name);
+                Logger::error("Couldnt mount '" + drive_name + "' at '/mnt/" + mount_name, g_no_log);
+                return;
+
+            }
 
         } else if (mount_or_unmount == "unmount") {
 
-            cmd = "umount " + drive_name;
+            std::cout << "\nEnter the name, under wich the target drive is mounted (it maby under '/mnt/' or '/media/<user>/'):\n";
 
-        }  else {
+            std::string unmount_name;
+            std::getline(std::cin, unmount_name);
 
-            ERR(ErrorCode::InvalidInput, "Invalid mount/unmount action: " + mount_or_unmount);
-            Logger::error("Invalid mount/unmount action: " + mount_or_unmount, g_no_log);
-            return;
+            if (!unmount_name.find("/mnt/") && !unmount_name.find("/media/")) {
 
+                ERR(ErrorCode::InvalidDevice, "The path you entered doesnt contain /mnt/ or /media/, what results in an failing unmount operation");
+                Logger::error("The path you entered doesnt contain /mnt/ or /media/, what results in an failing unmount operation", g_no_log);
+                return;
+
+            }
+
+            std::string unmount_cmd = "umount " + unmount_name;
+            auto unmount_res = EXEC_SUDO(unmount_cmd);
+             
+            if (!unmount_res.success) {
+
+                ERR(ErrorCode::ProcessFailure, "Couldnt unmount " + unmount_name);
+                Logger::error("Couldnt unmount " + unmount_name, g_no_log);
+                return;
+
+            }
         }
 
-        auto res = EXEC_SUDO(cmd);
-
-        if (!res.success) {
-
-            ERR(ErrorCode::ProcessFailure, "Failed to " + mount_or_unmount + " drive: " + drive_name);
-            Logger::error("Failed to " + mount_or_unmount + " drive: " + drive_name + " -> choose_mount_unmount()", g_no_log);
-            return;
-
-        }
+        return;
     }
 
     static void Restore_USB_Drive() {
@@ -1892,12 +1848,13 @@ private:
         try {
 
             std::cout << "Are you sure you want to overwrite/clean the ISO/Disk_Image from: " << restore_device_name << " ? [y/n]\n";
-            char confirm = 'n';
-            std::cin >> confirm;
+            
+            auto restore_confirm = validateCharInput({'y', 'n'});
+            if (!restore_confirm.has_value()) return;
 
-            if (std::tolower(confirm) != 'y') {
-
-                std::cout << "[INFO] Restore process aborted\n";
+            if (restore_confirm != 'y') {
+                std::cout << CYAN << "[INFO] " << RESET << "Operation cancelled\n";
+                Logger::info("restore usb operation cancelled", g_no_log);
                 return;
 
             }
@@ -1996,28 +1953,10 @@ public:
         std::cout << "│0. Return to main menu              │\n";
         std::cout << "└────────────────────────────────────┘\n";
 
-        #define MAX_OPTION 4
-
-        int menuinputmount;
-
-        if (!(std::cin >> menuinputmount)) {
-
-            std::cin.clear();
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
-            ERR(ErrorCode::InvalidInput, "Invalid input. Please enter a number.");
-            return;
-
-        }
-
-        if (menuinputmount < 0 || menuinputmount > MAX_OPTION) {
-
-            ERR(ErrorCode::OutOfRange, "Selection out out of range");
-            return;
-
-        }
-
-        switch (menuinputmount) {
+        auto menu_input = validateIntInput(0, 4);
+        if (!menu_input.has_value()) return;
+        
+        switch (*menu_input) {
             case Burniso: {
                 BurnISOToStorageDevice();
                 break;  
@@ -2099,10 +2038,11 @@ private:
         std::cout << "0. Return to main menu\n";
         std::cout << "--------------------------------\n";
         std::cout << "Enter your choice:\n"; 
-        int scanDriverecover;
-        std::cin >> scanDriverecover;
+        
+        auto scan_drive_recover = validateIntInput(0, 3);
+        if (!scan_drive_recover.has_value()) return;
 
-        switch (scanDriverecover) {
+        switch (*scan_drive_recover) {
             case 1: {
                 filerecovery();
                 break;
@@ -2147,12 +2087,11 @@ private:
 
         std::cout << "Scan depth: 1=quick 2=full\n";
 
-        int depth = 0;
-        std::cin >> depth;
+        auto depth = validateIntInput({1, 2});
+        if (!depth.has_value()) return;
 
         if (depth == 1) file_recovery_quick(device, (int)sig_idx);
         else if (depth == 2) file_recovery_full(device, (int)sig_idx);
-        else ERR(ErrorCode::InvalidInput, "Invalid scan depth");
     }
 
     static void file_recovery_quick(const std::string& drive, int signature_type) {
@@ -2330,11 +2269,12 @@ private:
 
         // Offer to dump partition table using sfdisk (non-destructive)
         std::cout << "Would you like to save a partition-table dump (recommended) to a file for possible restoration? (y/N): ";
-        char saveDump = 'n';
-        std::cin >> saveDump;
+        auto save_dump = validateCharInput({'y', 'n'});
+        if (!save_dump.has_value()) return;
+
         std::string dumpPath;
 
-        if (saveDump == 'y' || saveDump == 'Y') {
+        if (save_dump == 'y') {
             dumpPath = device;
 
             // sanitize filename: replace '/' with '_'
@@ -2453,10 +2393,11 @@ public:
         std::cout << "│ 3. recover of system, files,..          │\n";                                                                                                                                                                                                                                                                                                                                                                                                        
         std::cout << "│ 0. Exit                                 │\n";                                                                                                                                                                                                                                                                                                                                                                                               
         std::cout << "└─────────────────────────────────────────┘\n";
-        int forsensicmenuinput;
-        std::cin >> forsensicmenuinput;
+        
+        auto forensic_menu_input = validateIntInput(0, 3);
+        if (!forensic_menu_input.has_value()) return;
 
-        switch (static_cast<ForensicMenuOptions>(forsensicmenuinput)) {
+        switch (static_cast<ForensicMenuOptions>(*forensic_menu_input)) {
             case Info: {
                 std::cout << BOLD << "\n[Info] This is a custom made forensic analysis tool for the Drive Manager\n";
                 std::cout << "Its not using actual forsensic tools, but still if its finished would be fully functional\n";
@@ -2487,37 +2428,22 @@ public:
 };
 
 // ========== Clone Drive Utility ==========
-// last updated v0.18.15
-// validate func and tiny refacotring of funcs
 
 class Clone {
     private:
         static void CloneDrive(const std::string &source, const std::string &target) {
             std::cout << "\n[CloneDrive] Do you want to clone data from " << source << " to " << target << "? This will overwrite all data on the target drive(n) (y/n): ";
             
-            char confirmation = 'n';
-            std::cin >> confirmation;
+            auto confirmation = validateCharInput({'y', 'n'});
+            if (!confirmation.has_value()) return;
 
-            if (!std::cin) {
-                
-                std::cin.clear();
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
-                ERR(ErrorCode::InvalidInput, "Expected input is a single char");
-                Logger::error("Invalid input", g_no_log);
-                return;
-
-            }
-
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
-            if (confirmation != 'y' && confirmation != 'Y') {
+            if (confirmation != 'y') {
 
                 std::cout << "[Info] Operation cancelled\n";
                 Logger::info("Operation cancelled -> Clone::CloneDrive()", g_no_log);
                 return;
 
-            } else if (confirmation == 'y' || confirmation == 'Y') {
+            } else if (confirmation == 'y') {
                 try {
 
                     auto res = EXEC_SUDO("dd if=" + source + " of=" + target + " bs=5M status=progress && sync");
@@ -2610,7 +2536,6 @@ class Clone {
 };
 
 // ========== Log Viewer Utility ==========
-// v0.9.19.29; new logic for printing the logs and colorizing them
 
 void logViewer() {
     std::string path = filePathHandler("/.local/share/DriveMgr/data/log.dat");
@@ -2618,10 +2543,12 @@ void logViewer() {
     std::ifstream file(path);
 
     if (!file) {
+
         Logger::error("Unable to read log file at " + path, g_no_log);
         ERR(ErrorCode::FileNotFound, "Unable to read log file at path: " + path);
         std::cout << "Please read the log file manually at: " << path << "\n";
         return;
+
     }
 
     std::cout << "\nLog file content:\n";
@@ -2655,22 +2582,23 @@ void logViewer() {
             std::cout << line << "\n";
         }
     }
+
+    std::cout << "\nDo you want to empty the log file content? (y/n):\n";
+    
+    auto clear_loggs = validateCharInput({'y', 'n'});
+    if (!clear_loggs.has_value()) return;
+
+    if (clear_loggs == 'y') {
+
+        Logger::clearLoggs(path);
+
+    }
+
+    return;
 }
 
 // ========== Configuration Editor Utility ==========
 // v0.9.19.23; added fallbacks for config values if the user doesnt specify them in the config file
-
-const std::unordered_map<std::string, std::string> available_colores {
-    {"RED", RED},
-    {"GREEN", GREEN},
-    {"YELLOW", YELLOW},
-    {"BLUE", BLUE},
-    {"MAGENTA", MAGENTA},
-    {"CYAN", CYAN},
-    {"BOLD", BOLD},
-    {"INVERSE", INVERSE},
-    {"RESET", RESET},
-};
 
 class ConfigValueHandeling {
     public:
@@ -2761,11 +2689,10 @@ class ConfigValueHandeling {
             std::cout << "└─────────────────────────┘\n";   
             std::cout << "\nDo you want to edit the config file? (y/n)\n";
             
-            std::string config_edit;
-            std::cin >> config_edit;
-            
-            if (config_edit == "n" || config_edit.empty()) { return; }
-            else if (config_edit == "y") {
+            auto config_edit_confirm = validateCharInput({'y', 'n'}); 
+            if (!config_edit_confirm.has_value()) return; 
+
+            if (config_edit_confirm == 'y') {
 
                 std::string lumePath = filePathHandler("/.local/share/DriveMgr/bin/Lume/Lume");
 
@@ -2980,18 +2907,17 @@ static void printUsage(const char* progname) {
 void menuQues(bool& running) {   
     std::cout << BOLD <<"\nPress '1' for returning to the main menu, '2' to exit:\n" << RESET;
 
-    int menuques;
-    std::cin >> menuques;
+    auto menuques = validateIntInput({1, 2});
+
+    if (!menuques.has_value()) return;
 
     if (menuques == 1) {
+
         running = true;
 
     } else if (menuques == 2) {
-        running = false;
 
-    } else {
-        std::cout << RED << "[ERROR] Wrong input\n" << RESET;
-        running = true; 
+        running = false;
     }
 }
 
