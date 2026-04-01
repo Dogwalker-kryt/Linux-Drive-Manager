@@ -14,8 +14,6 @@ LDFLAGS := -flto -s -O2 -lssl -lcrypto
 
 # Source and object files
 SRCS := $(wildcard $(SRC_DIR)/*.cpp)
-SRCS := $(filter-out src/command_exec.cpp, $(SRCS))
-SRCS := $(filter-out src/exec_cmd.cpp, $(SRCS))
 OBJS := $(SRCS:.cpp=.o)
 
 # Default rule
@@ -23,17 +21,17 @@ all: $(TARGET)
 
 # Link final binary
 $(TARGET): $(OBJS)
-    $(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
-    @rm -f $(OBJS)
+	$(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
+	@rm -f $(OBJS)
 
 # Compile each .cpp into .o
 %.o: %.cpp
-    $(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Clean
 clean:
-    rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(TARGET)
 
 # Run
 run: all
-    ./$(TARGET)
+	./$(TARGET)
