@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.21.85_dev
+// v0.9.21.86_dev
 
 // C++ libraries
 #include <iostream>
@@ -67,7 +67,7 @@
 // ==================== global variables and definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.21.85_dev")
+#define VERSION std::string("v0.9.21.86_dev")
 
 
 // === altTerminal Screen ===
@@ -767,7 +767,7 @@ private:
         std::cout << msg.str();
 
         auto confirmation = validateCharInput({'y', 'n'});
-        if (!confirmation.has_value()) return;
+        if (!confirmation.has_value()) return false;
         
         if (confirmation != 'y') {
 
@@ -1071,7 +1071,7 @@ private:
             std::cout << "Do you want to retry? (y/N)\n";
 
             auto confirm_if_retry = validateCharInput({'y', 'n'});
-            if (!confirm_if_retry.has_value()) return;
+            if (!confirm_if_retry.has_value()) return false;
 
             if (confirm_if_retry == 'n') {
                 std::cout << YELLOW << "[INFO] " << RESET << "User aborted retry\n";
