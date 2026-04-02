@@ -305,11 +305,46 @@ public:
     }
 };
 
+/**
+ * @brief Loggs an error
+ * @param msg Message to be logged
+ * @param g_no_log use g_no_log for this
+ */
 #define LOG_ERROR(msg, g_no_log)    Logger::error(msg, g_no_log, __func__)
+
+/**
+ * @brief Loggs an warning
+ * @param msg Message to be logged
+ * @param g_no_log use g_no_log for this
+ */
 #define LOG_WARNING(msg, g_no_log)  Logger::warning(msg, g_no_log, __func__)
+
+/**
+ * @brief Loggs an Info
+ * @param msg Message to be logged
+ * @param g_no_log use g_no_log for this
+ */
 #define LOG_INFO(msg, g_no_log)     Logger::info(msg, g_no_log, __func__)
+
+/**
+ * @brief Loggs an Success
+ * @param msg Message to be logged
+ * @param g_no_log use g_no_log for this
+ */
 #define LOG_SUCCESS(msg, g_no_log)  Logger::success(msg, g_no_log, __func__)
+
+/**
+ * @brief Loggs an Dry run
+ * @param msg Message to be logged
+ * @param g_no_log use g_no_log for this
+ */
 #define LOG_DRYRUN(msg, g_no_log)   Logger::dry_run(msg, g_no_log, __func__)
+
+/**
+ * @brief Loggs an cmd execution
+ * @param msg Message to be logged
+ * @param g_no_log use g_no_log for this
+ */
 #define LOG_EXEC(msg, g_no_log)     Logger::exec(msg, g_no_log, __func__)
 
 // ==================== Runtime error and TUI components ====================
@@ -388,6 +423,127 @@ static std::map<std::string, file_signature> signatures ={
     {"html", {"html", {0x3C, 0x21, 0x44, 0x4F, 0x43, 0x54, 0x59, 0x50, 0x45}}},
     {"csv",  {"csv",  {0x49, 0x44, 0x33}}} //often ID3 if they contain metadata
 };
+
+// ========= input validation =========
+
+namespace InputValidation {
+
+    /**
+     * @brief Validates user input as an integer within a specified range.
+     *
+     * Reads a full line from standard input and attempts to convert it into an
+     * integer. The value must fall within the given range. Error and log messages
+     * are handled internally, so callers only need to check the return value.
+     *
+     * @param min_value The minimum acceptable integer value (inclusive).
+     * @param max_value The maximum acceptable integer value (inclusive).
+     *
+     * @return std::optional<int>
+     *         Contains the parsed integer on success, or std::nullopt if the input
+     *         is empty, non-numeric, or out of range.
+     */
+    std::optional<int> getInt(const std::vector<int> &valid_ints = {}) {
+        std::string s_input;
+        std::getline(std::cin, s_input);
+
+        if (s_input.empty()) {
+
+            ERR(ErrorCode::InvalidInput, "int Input expected");
+            LOG_ERROR("invalid input; input is empty", g_no_log);
+            return std::nullopt;
+
+        }
+
+        try {
+
+            int i_input = std::stoi(s_input);
+
+            if (!valid_ints.empty() && std::find(valid_ints.begin(), valid_ints.end(), i_input) == valid_ints.end()) {
+
+                ERR(ErrorCode::InvalidInput, "Input not in allowed integer list");
+                LOG_ERROR("Input not in allowed integer list -> validateIntInput", g_no_log);
+                return std::nullopt;
+
+            }
+
+            return i_input;
+
+        } catch (const std::exception& e) {
+
+            ERR(ErrorCode::InvalidInput, "Conversion from string to int failed");
+            LOG_ERROR("Conversion from string to int failed -> validateIntInput", g_no_log);
+            return std::nullopt;
+
+        }
+    }
+
+    /**
+     * @ingroup InputValidation
+     * @brief Validates user input as an integer within a continuous numeric range.
+     *
+     * This overload is a convenience wrapper for cases where the allowed integers
+     * form a continuous range (e.g., 1–20). It automatically generates a vector
+     * containing all integers from @p min_value to @p max_value (inclusive) and
+     * forwards the validation to the list-based validateIntInput() function.
+     *
+     * @param min_value The lowest allowed integer.
+     * @param max_value The highest allowed integer.
+     *
+     * @return std::optional<int>
+     *         - Contains the parsed integer if it lies within the range.
+     *         - std::nullopt otherwise.
+     */
+    std::optional<int> getInt(int min_value, int max_value) {
+        std::vector<int> valid_ints;
+        valid_ints.reserve(max_value - min_value + 1);
+
+        for (int i = min_value; i <= max_value; ++i)
+            valid_ints.push_back(i);
+
+        return getInt(valid_ints);
+    }
+
+
+    /**
+     * @brief Validates user input as a single character.
+     *
+     * Reads a full line from standard input and checks whether it contains exactly
+     * one character. Optionally verifies that the character is part of a list of
+     * allowed characters. Error and log messages are handled internally.
+     *
+     * @param valid_chars Optional list of allowed characters. If empty, any single
+     *        character is accepted.
+     *
+     * @return std::optional<char>
+     *         - Contains the parsed character on success.
+     *         - std::nullopt if the input is empty, longer than one character,
+     *           or not part of the allowed character list.
+     */
+    std::optional<char> getChar(const std::vector<char> &valid_chars = {}) {
+        std::string s_input;
+        std::getline(std::cin, s_input);
+
+        if (s_input.empty() || s_input.size() != 1) {
+
+            ERR(ErrorCode::InvalidInput, "Input cannot be emtpy or more then 1 char");
+            LOG_ERROR("Invalid input; input is empty or more then 1 cahr -> validateCharInput", g_no_log);
+            return std::nullopt;
+
+        }
+
+        char c_input = s_input[0];
+
+        if (!valid_chars.empty() && std::find(valid_chars.begin(), valid_chars.end(), c_input) == valid_chars.end()) {
+
+            ERR(ErrorCode::InvalidInput, "Character not allowed");
+            LOG_ERROR("Char not in allowed list", g_no_log);
+            return std::nullopt;
+
+        }
+
+        return c_input;
+    }
+}
 
 
 // ==================== Side/Helper Functions ====================
@@ -536,125 +692,7 @@ bool checkRootMetadata() {
 }
 
 
-// ========= input validation =========
-
-namespace InputValidation {
-
-    /**
-     * @brief Validates user input as an integer within a specified range.
-     *
-     * Reads a full line from standard input and attempts to convert it into an
-     * integer. The value must fall within the given range. Error and log messages
-     * are handled internally, so callers only need to check the return value.
-     *
-     * @param min_value The minimum acceptable integer value (inclusive).
-     * @param max_value The maximum acceptable integer value (inclusive).
-     *
-     * @return std::optional<int>
-     *         Contains the parsed integer on success, or std::nullopt if the input
-     *         is empty, non-numeric, or out of range.
-     */
-    std::optional<int> getInt(const std::vector<int> &valid_ints = {}) {
-        std::string s_input;
-        std::getline(std::cin, s_input);
-
-        if (s_input.empty()) {
-
-            ERR(ErrorCode::InvalidInput, "int Input expected");
-            LOG_ERROR("invalid input; input is empty", g_no_log);
-            return std::nullopt;
-
-        }
-
-        try {
-
-            int i_input = std::stoi(s_input);
-
-            if (!valid_ints.empty() && std::find(valid_ints.begin(), valid_ints.end(), i_input) == valid_ints.end()) {
-
-                ERR(ErrorCode::InvalidInput, "Input not in allowed integer list");
-                LOG_ERROR("Input not in allowed integer list -> validateIntInput", g_no_log);
-                return std::nullopt;
-
-            }
-
-            return i_input;
-
-        } catch (const std::exception& e) {
-
-            ERR(ErrorCode::InvalidInput, "Conversion from string to int failed");
-            LOG_ERROR("Conversion from string to int failed -> validateIntInput", g_no_log);
-            return std::nullopt;
-
-        }
-    }
-
-    /**
-     * @ingroup InputValidation
-     * @brief Validates user input as an integer within a continuous numeric range.
-     *
-     * This overload is a convenience wrapper for cases where the allowed integers
-     * form a continuous range (e.g., 1–20). It automatically generates a vector
-     * containing all integers from @p min_value to @p max_value (inclusive) and
-     * forwards the validation to the list-based validateIntInput() function.
-     *
-     * @param min_value The lowest allowed integer.
-     * @param max_value The highest allowed integer.
-     *
-     * @return std::optional<int>
-     *         - Contains the parsed integer if it lies within the range.
-     *         - std::nullopt otherwise.
-     */
-    std::optional<int> getInt(int min_value, int max_value) {
-        std::vector<int> valid_ints;
-        valid_ints.reserve(max_value - min_value + 1);
-
-        for (int i = min_value; i <= max_value; ++i)
-            valid_ints.push_back(i);
-
-        return getInt(valid_ints);
-    }
 
 
-    /**
-     * @brief Validates user input as a single character.
-     *
-     * Reads a full line from standard input and checks whether it contains exactly
-     * one character. Optionally verifies that the character is part of a list of
-     * allowed characters. Error and log messages are handled internally.
-     *
-     * @param valid_chars Optional list of allowed characters. If empty, any single
-     *        character is accepted.
-     *
-     * @return std::optional<char>
-     *         - Contains the parsed character on success.
-     *         - std::nullopt if the input is empty, longer than one character,
-     *           or not part of the allowed character list.
-     */
-    std::optional<char> getChar(const std::vector<char> &valid_chars = {}) {
-        std::string s_input;
-        std::getline(std::cin, s_input);
-
-        if (s_input.empty() || s_input.size() != 1) {
-
-            ERR(ErrorCode::InvalidInput, "Input cannot be emtpy or more then 1 char");
-            LOG_ERROR("Invalid input; input is empty or more then 1 cahr -> validateCharInput", g_no_log);
-            return std::nullopt;
-
-        }
-
-        char c_input = s_input[0];
-
-        if (!valid_chars.empty() && std::find(valid_chars.begin(), valid_chars.end(), c_input) == valid_chars.end()) {
-
-            ERR(ErrorCode::InvalidInput, "Character not allowed");
-            LOG_ERROR("Char not in allowed list", g_no_log);
-            return std::nullopt;
-
-        }
-
-        return c_input;
-    }
-}
 
 #endif 
