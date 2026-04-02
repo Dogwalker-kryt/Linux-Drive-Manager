@@ -58,6 +58,9 @@
 // ==================== global vars ====================
 extern bool g_no_color;
 extern bool g_dry_run;
+extern std::string g_THEME_COLOR;
+extern std::string g_SELECTION_COLOR;
+extern std::string g_selected_drive;
 
 // ==================== Color ====================
 namespace Color {
@@ -117,6 +120,8 @@ class TerminosIO {
         }
 };
 
+TerminosIO term;
+
 // ==================== Logging ====================
 
 /** 
@@ -166,7 +171,7 @@ private:
      * Logs to ~/.local/share/DriveMgr/data/log.dat with format: [DD-MM-YYYY HH:MM] event: <operation>
      * Creates log directory if it doesn't exist. Respects SUDO_USER for proper file ownership.
      */
-    static void log(LogType type, const std::string& operation, const bool g_no_log) {
+    static void log(LogType type, const std::string& operation, const bool g_no_log, const char* func) {
         if (g_no_log == false) {
             auto now = std::chrono::system_clock::now();
             std::time_t currentTime = std::chrono::system_clock::to_time_t(now);
@@ -174,7 +179,7 @@ private:
             std::strftime(timeStr, sizeof(timeStr), "%d-%m-%Y %H:%M", std::localtime(&currentTime));
             //"%d-%m-%Y %M:%H" // new
             //"%Y-%m-%d %H:%M:%S" // old
-            std::string logMsg = "[" + std::string(timeStr) + "] event: " + logMessage(type) + operation;
+            std::string logMsg = "[" + std::string(timeStr) + "] event: " + logMessage(type) + operation + " (location: " + std::string(func) + ")";
 
             const char* sudo_user = std::getenv("SUDO_USER");
             const char* user_env = std::getenv("USER");
@@ -221,8 +226,8 @@ public:
      * @param msg the Message to be logged in the log file
      * @param g_no_log use the global g_no_log variable for this
      */
-    static void error(const std::string &msg, bool g_no_log) {
-        log(LogType::ERROR, msg, g_no_log);
+    static void error(const std::string &msg, bool g_no_log, const char* func) {
+        log(LogType::ERROR, msg, g_no_log, func);
     }
 
     /**
@@ -230,8 +235,8 @@ public:
      * @param msg the Message to be logged in the log file
      * @param g_no_log use the global g_no_log variable for this
      */
-    static void warning(const std::string &msg, bool g_no_log) {
-        log(LogType::WARNING, msg, g_no_log);
+    static void warning(const std::string &msg, bool g_no_log, const char* func) {
+        log(LogType::WARNING, msg, g_no_log, func);
     }
 
     /**
@@ -239,8 +244,8 @@ public:
      * @param msg the Message to be logged in the log file
      * @param g_no_log use the global g_no_log variable for this
      */
-    static void info(const std::string &msg, bool g_no_log) {
-        log(LogType::INFO, msg, g_no_log);
+    static void info(const std::string &msg, bool g_no_log, const char* func) {
+        log(LogType::INFO, msg, g_no_log, func);
     }
 
     /**
@@ -248,8 +253,8 @@ public:
      * @param msg the Message to be logged in the log file
      * @param g_no_log use the global g_no_log variable for this
      */    
-    static void success(const std::string &msg, bool g_no_log) {
-        log(LogType::SUCCESS, msg, g_no_log);
+    static void success(const std::string &msg, bool g_no_log, const char* func) {
+        log(LogType::SUCCESS, msg, g_no_log, func);
     }
 
     /**
@@ -257,8 +262,8 @@ public:
      * @param msg the Message to be logged in the log file
      * @param g_no_log use the global g_no_log variable for this
      */ 
-    static void dry_run(const std::string &msg, bool g_no_log) {
-        log(LogType::DRYRUN, msg, g_no_log);
+    static void dry_run(const std::string &msg, bool g_no_log, const char* func) {
+        log(LogType::DRYRUN, msg, g_no_log, func);
     }
 
     /**
@@ -266,8 +271,8 @@ public:
      * @param msg the Message to be logged in the log file
      * @param g_no_log use the global g_no_log variable for this
      */ 
-    static void exec(const std::string &msg, bool g_no_log) {
-        log(LogType::EXEC, msg, g_no_log);
+    static void exec(const std::string &msg, bool g_no_log, const char* func) {
+        log(LogType::EXEC, msg, g_no_log, func);
     }
 
     static void clearLoggs(const std::string& path) {
@@ -300,6 +305,12 @@ public:
     }
 };
 
+#define LOG_ERROR(msg, g_no_log)    Logger::error(msg, g_no_log, __func__)
+#define LOG_WARNING(msg, g_no_log)  Logger::warning(msg, g_no_log, __func__)
+#define LOG_INFO(msg, g_no_log)     Logger::info(msg, g_no_log, __func__)
+#define LOG_SUCCESS(msg, g_no_log)  Logger::success(msg, g_no_log, __func__)
+#define LOG_DRYRUN(msg, g_no_log)   Logger::dry_run(msg, g_no_log, __func__)
+#define LOG_EXEC(msg, g_no_log)     Logger::exec(msg, g_no_log, __func__)
 
 // ==================== Runtime error and TUI components ====================
 
@@ -378,6 +389,7 @@ static std::map<std::string, file_signature> signatures ={
     {"csv",  {"csv",  {0x49, 0x44, 0x33}}} //often ID3 if they contain metadata
 };
 
+
 // ==================== Side/Helper Functions ====================
 
 
@@ -424,7 +436,7 @@ bool askForConfirmation(const std::string &prompt) {
 
     if (confirm != 'Y' && confirm != 'y') {
         std::cout << BOLD << "[INFO] Operation cancelled\n" << RESET;
-        Logger::info("Operation cancelled", g_no_color);
+        LOG_INFO("Operation cancelled", g_no_color);
         return false;
     } 
 
@@ -443,7 +455,7 @@ std::string filePathHandler(const std::string &file_path) {
 
     if (!username) {
         std::cerr << RED << "[ERROR] Could not determine username.\n" << RESET;
-        Logger::error("Could not determine username", g_no_log);
+        LOG_ERROR("Could not determine username", g_no_log);
         return "";
     }
 
@@ -451,7 +463,7 @@ std::string filePathHandler(const std::string &file_path) {
 
     if (!pw) {
         std::cerr << RED << "[ERROR] Could not get home directory for user: " << username << RESET << "\n";
-        Logger::error("Failed to get home directory for user: " + std::string(username), g_no_log);
+        LOG_ERROR("Failed to get home directory for user: " + std::string(username), g_no_log);
         return "";
     }
 
@@ -480,124 +492,169 @@ std::string removeFirstLines(const std::string& text, int n = 3) {
     return out;
 }
 
-
-// ========= input validation
-
 /**
- * @brief Validates user input as an integer within a specified range.
- *
- * Reads a full line from standard input and attempts to convert it into an
- * integer. The value must fall within the given range. Error and log messages
- * are handled internally, so callers only need to check the return value.
- *
- * @param min_value The minimum acceptable integer value (inclusive).
- * @param max_value The maximum acceptable integer value (inclusive).
- *
- * @return std::optional<int>
- *         Contains the parsed integer on success, or std::nullopt if the input
- *         is empty, non-numeric, or out of range.
+ * @brief This is the End question that is promted when a function failed/finished
+ * @param running There is a variable in main that is named 'running', use it for only this
  */
-std::optional<int> validateIntInput(const std::vector<int> &valid_ints = {}) {
-    std::string s_input;
-    std::getline(std::cin, s_input);
+void menuQues(bool& running) {   
+    std::cout << BOLD <<"\nPress '1' for returning to the main menu, '2' to exit:\n" << RESET;
 
-    if (s_input.empty()) {
+    auto menuques = InputValidation::getInt({1, 2});
 
-        ERR(ErrorCode::InvalidInput, "int Input expected");
-        Logger::error("invalid input; input is empty", g_no_log);
-        return std::nullopt;
+    if (!menuques.has_value()) return;
 
+    if (menuques == 1) {
+
+        running = true;
+
+    } else if (menuques == 2) {
+
+        running = false;
     }
+}
 
-    try {
+bool isRoot() {
+    return (getuid() == 0);
+}
 
-        int i_input = std::stoi(s_input);
+bool checkRoot() {
+    if (!isRoot()) {
+        ERR(ErrorCode::PermissionDenied, "This function requires root privileges. Please run with 'sudo'");
+        LOG_ERROR("Attempted to run without root privileges", g_no_log);
+        return false;
+    }
+    return true;
+}
 
-        if (!valid_ints.empty() && std::find(valid_ints.begin(), valid_ints.end(), i_input) == valid_ints.end()) {
+bool checkRootMetadata() {
+    if (!isRoot()) {
+        std::cerr << YELLOW << "[WARNING] Running without root may limit functionality. For full access, please run with 'sudo'.\n" << RESET;
+        LOG_WARNING("Running without root privileges", g_no_log);
+        return false;
+    }
+    return true;
+}
 
-            ERR(ErrorCode::InvalidInput, "Input not in allowed integer list");
-            Logger::error("Input not in allowed integer list -> validateIntInput", g_no_log);
+
+// ========= input validation =========
+
+namespace InputValidation {
+
+    /**
+     * @brief Validates user input as an integer within a specified range.
+     *
+     * Reads a full line from standard input and attempts to convert it into an
+     * integer. The value must fall within the given range. Error and log messages
+     * are handled internally, so callers only need to check the return value.
+     *
+     * @param min_value The minimum acceptable integer value (inclusive).
+     * @param max_value The maximum acceptable integer value (inclusive).
+     *
+     * @return std::optional<int>
+     *         Contains the parsed integer on success, or std::nullopt if the input
+     *         is empty, non-numeric, or out of range.
+     */
+    std::optional<int> getInt(const std::vector<int> &valid_ints = {}) {
+        std::string s_input;
+        std::getline(std::cin, s_input);
+
+        if (s_input.empty()) {
+
+            ERR(ErrorCode::InvalidInput, "int Input expected");
+            LOG_ERROR("invalid input; input is empty", g_no_log);
             return std::nullopt;
 
         }
 
-        return i_input;
+        try {
 
-    } catch (const std::exception& e) {
+            int i_input = std::stoi(s_input);
 
-        ERR(ErrorCode::InvalidInput, "Conversion from string to int failed");
-        Logger::error("Conversion from string to int failed -> validateIntInput", g_no_log);
-        return std::nullopt;
+            if (!valid_ints.empty() && std::find(valid_ints.begin(), valid_ints.end(), i_input) == valid_ints.end()) {
 
-    }
-}
+                ERR(ErrorCode::InvalidInput, "Input not in allowed integer list");
+                LOG_ERROR("Input not in allowed integer list -> validateIntInput", g_no_log);
+                return std::nullopt;
 
-/**
- * @ingroup InputValidation
- * @brief Validates user input as an integer within a continuous numeric range.
- *
- * This overload is a convenience wrapper for cases where the allowed integers
- * form a continuous range (e.g., 1–20). It automatically generates a vector
- * containing all integers from @p min_value to @p max_value (inclusive) and
- * forwards the validation to the list-based validateIntInput() function.
- *
- * @param min_value The lowest allowed integer.
- * @param max_value The highest allowed integer.
- *
- * @return std::optional<int>
- *         - Contains the parsed integer if it lies within the range.
- *         - std::nullopt otherwise.
- */
-std::optional<int> validateIntInput(int min_value, int max_value) {
-    std::vector<int> valid_ints;
-    valid_ints.reserve(max_value - min_value + 1);
+            }
 
-    for (int i = min_value; i <= max_value; ++i)
-        valid_ints.push_back(i);
+            return i_input;
 
-    return validateIntInput(valid_ints);
-}
+        } catch (const std::exception& e) {
 
+            ERR(ErrorCode::InvalidInput, "Conversion from string to int failed");
+            LOG_ERROR("Conversion from string to int failed -> validateIntInput", g_no_log);
+            return std::nullopt;
 
-/**
- * @brief Validates user input as a single character.
- *
- * Reads a full line from standard input and checks whether it contains exactly
- * one character. Optionally verifies that the character is part of a list of
- * allowed characters. Error and log messages are handled internally.
- *
- * @param valid_chars Optional list of allowed characters. If empty, any single
- *        character is accepted.
- *
- * @return std::optional<char>
- *         - Contains the parsed character on success.
- *         - std::nullopt if the input is empty, longer than one character,
- *           or not part of the allowed character list.
- */
-std::optional<char> validateCharInput(const std::vector<char> &valid_chars = {}) {
-    std::string s_input;
-    std::getline(std::cin, s_input);
-
-    if (s_input.empty() || s_input.size() != 1) {
-
-        ERR(ErrorCode::InvalidInput, "Input cannot be emtpy or more then 1 char");
-        Logger::error("Invalid input; input is empty or more then 1 cahr -> validateCharInput", g_no_log);
-        return std::nullopt;
-
+        }
     }
 
-    char c_input = s_input[0];
+    /**
+     * @ingroup InputValidation
+     * @brief Validates user input as an integer within a continuous numeric range.
+     *
+     * This overload is a convenience wrapper for cases where the allowed integers
+     * form a continuous range (e.g., 1–20). It automatically generates a vector
+     * containing all integers from @p min_value to @p max_value (inclusive) and
+     * forwards the validation to the list-based validateIntInput() function.
+     *
+     * @param min_value The lowest allowed integer.
+     * @param max_value The highest allowed integer.
+     *
+     * @return std::optional<int>
+     *         - Contains the parsed integer if it lies within the range.
+     *         - std::nullopt otherwise.
+     */
+    std::optional<int> getInt(int min_value, int max_value) {
+        std::vector<int> valid_ints;
+        valid_ints.reserve(max_value - min_value + 1);
 
-    if (!valid_chars.empty() && std::find(valid_chars.begin(), valid_chars.end(), c_input) == valid_chars.end()) {
+        for (int i = min_value; i <= max_value; ++i)
+            valid_ints.push_back(i);
 
-        ERR(ErrorCode::InvalidInput, "Character not allowed");
-        Logger::error("Char not in allowed list", g_no_log);
-        return std::nullopt;
-
+        return getInt(valid_ints);
     }
 
-    return c_input;
-}
 
+    /**
+     * @brief Validates user input as a single character.
+     *
+     * Reads a full line from standard input and checks whether it contains exactly
+     * one character. Optionally verifies that the character is part of a list of
+     * allowed characters. Error and log messages are handled internally.
+     *
+     * @param valid_chars Optional list of allowed characters. If empty, any single
+     *        character is accepted.
+     *
+     * @return std::optional<char>
+     *         - Contains the parsed character on success.
+     *         - std::nullopt if the input is empty, longer than one character,
+     *           or not part of the allowed character list.
+     */
+    std::optional<char> getChar(const std::vector<char> &valid_chars = {}) {
+        std::string s_input;
+        std::getline(std::cin, s_input);
+
+        if (s_input.empty() || s_input.size() != 1) {
+
+            ERR(ErrorCode::InvalidInput, "Input cannot be emtpy or more then 1 char");
+            LOG_ERROR("Invalid input; input is empty or more then 1 cahr -> validateCharInput", g_no_log);
+            return std::nullopt;
+
+        }
+
+        char c_input = s_input[0];
+
+        if (!valid_chars.empty() && std::find(valid_chars.begin(), valid_chars.end(), c_input) == valid_chars.end()) {
+
+            ERR(ErrorCode::InvalidInput, "Character not allowed");
+            LOG_ERROR("Char not in allowed list", g_no_log);
+            return std::nullopt;
+
+        }
+
+        return c_input;
+    }
+}
 
 #endif 
