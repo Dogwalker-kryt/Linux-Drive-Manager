@@ -41,7 +41,7 @@ class CmdExec {
 private:
     static inline bool check_error(const std::string& output, const std::string& cmd) {
         if (output.find("error") != std::string::npos || output.find("failed") != std::string::npos || output.find("ERROR") != std::string::npos) {
-            Logger::error("Command failed: " + cmd, g_no_log);
+            LOG_ERROR("Command failed: " + cmd, g_no_log);
             return false;
         }
         return true;
@@ -58,7 +58,7 @@ public:
         // Dry-run mode
         if (g_dry_run || mode == ExecMode::DRY_RUN) {
             std::cout << YELLOW << "[DRY-RUN] Would execute: " << final_cmd << RESET << "\n";
-            Logger::dry_run(final_cmd, g_no_log);
+            LOG_DRYRUN(final_cmd, g_no_log);
             result.success = true;
             return result;
         }
@@ -68,7 +68,7 @@ public:
         result.success = check_error(result.output, cmd);
         
         if (mode == ExecMode::QUIET) {
-            Logger::exec(cmd + " -> " + (result.success ? "OK" : "FAILED"), g_no_log);
+            LOG_EXEC(cmd + " -> " + (result.success ? "OK" : "FAILED"), g_no_log);
         } else {
             if (!result.output.empty()) std::cout << result.output << "\n";
         }
