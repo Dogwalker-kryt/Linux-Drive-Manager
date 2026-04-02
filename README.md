@@ -44,7 +44,7 @@ but to add a safety and orchestration layer on top of them.
 
 **CLI:**
 
-- Experimental: `v0.9.21.86`  
+- Experimental: `v0.9.22.86`  
   _(new input validation)_
 
 **GUI (Not getting Updated anymore):**
