@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.22.86_dev
+// v0.9.23.05
 
 // C++ libraries
 #include <iostream>
@@ -65,7 +65,7 @@
 // ==================== global variables and definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.22.86")
+#define VERSION std::string("v0.9.23.05")
 
 
 // === altTerminal Screen ===
@@ -101,6 +101,37 @@ static bool g_debug     =  false;
 static std::vector<std::string> g_last_drives;
 std::string g_selected_drive;
 
+
+// ==================== DriveMetadata Struct Architecture ====================
+class DriveMetadataStruct {
+public:    
+    struct DriveMetadata {
+        std::optional<std::string> name;
+        std::optional<std::string> size;
+        std::optional<std::string> model;
+        std::optional<std::string> serial;
+        std::optional<std::string> type;
+        std::optional<std::string> mountpoint;
+        std::optional<std::string> vendor;
+        std::optional<std::string> fstype;
+        std::optional<std::string> uuid;
+    };
+
+    /**
+     * @brief Clears all metadata fields of a DriveMetadata struct by resetting the optional values to std::nullopt.
+     */
+    static void clearMetadata(DriveMetadata& metadata) {
+        metadata.name = std::nullopt;
+        metadata.size = std::nullopt;
+        metadata.model = std::nullopt;
+        metadata.serial = std::nullopt;
+        metadata.type = std::nullopt;
+        metadata.mountpoint = std::nullopt;
+        metadata.vendor = std::nullopt;
+        metadata.fstype = std::nullopt;
+        metadata.uuid = std::nullopt;
+    }
+};
 
 // ========== Partition Management ========== 
 
@@ -177,6 +208,7 @@ class PartitionsUtils {
 
                 ERR(ErrorCode::InvalidInput, "Expected input is a integer");
                 LOG_ERROR("Expected input is a integer", g_no_log);
+                return;
 
             }
 
@@ -198,6 +230,7 @@ class PartitionsUtils {
 
                 ERR(ErrorCode::InvalidInput, "Expected a positive numeric input to assign to a uint64_t integer");
                 LOG_ERROR("You cannot assign a number <=0 to a uint64 interger", g_no_log);
+                return;
 
             }
 
@@ -219,6 +252,7 @@ class PartitionsUtils {
 
                 ERR(ErrorCode::ProcessFailure, "Failed to resize partition");
                 LOG_ERROR("Failed to resize partition", g_no_log);
+                return;
 
             }
         }
@@ -236,6 +270,7 @@ class PartitionsUtils {
 
                 ERR(ErrorCode::InvalidInput, "Expected input is a integer");
                 LOG_ERROR("Expected input is a integer", g_no_log);
+                return;
 
             }
 
@@ -257,6 +292,7 @@ class PartitionsUtils {
 
                 ERR(ErrorCode::InvalidInput, "Expected a positive numeric input to assign to a uint64_t integer");
                 LOG_ERROR("You cannot assign a number <=0 to a uint64 interger", g_no_log);
+                return;
 
             }
 
@@ -278,6 +314,7 @@ class PartitionsUtils {
 
                 ERR(ErrorCode::ProcessFailure, "Failed to move partition");
                 LOG_ERROR("Failed to move partition", g_no_log);
+                return;
 
             }
         }
@@ -315,6 +352,7 @@ class PartitionsUtils {
 
                 ERR(ErrorCode::InvalidInput, "Expected input is a integer");
                 LOG_ERROR("Expected input is a integer", g_no_log);
+                return;
 
             }
 
@@ -340,6 +378,7 @@ class PartitionsUtils {
 
                     ERR(ErrorCode::ProcessFailure, "Failed to change partition type");
                     LOG_ERROR("Failed to change partition type", g_no_log);
+                    return;
 
                 }
             }
@@ -907,6 +946,14 @@ private:
         std::cout << "\nEnter a Passphrase for the encrypted USB\n";
         std::getline(std::cin, passphrase);
 
+        if (!passphrase.empty()) {
+
+            ERR(ErrorCode::InvalidInput, "The passphrase you entered is emtpy; Expecting non empty string");
+            LOG_ERROR("The passphrase you entered is emtpy", g_no_log);
+            return;
+
+        }
+
         std::cout << "\nRetype your Passphrase you just entered:\n";
         std::getline(std::cin, passphrase_retype);
     
@@ -921,18 +968,22 @@ private:
         if (passphrase != passphrase_retype) {
 
             ERR(ErrorCode::InvalidInput, "The passphrases you entered doesnt match; Expecting similar passphrase input");
-            LOG_ERROR("The passphrases you entered doesnt match: p1:'" + passphrase + "' p2:'" + passphrase_retype + "'", g_no_log);
+            LOG_ERROR("The passphrases you entered doesnt match: p2:'" + passphrase_retype + "'", g_no_log);
             return;
 
         }
     
+        std::ofstream tmpfile("/tmp/LDM_tmp_dump.txt");
+        tmpfile << passphrase_retype;
+        tmpfile.close();
+
         // pass passphrases to crypsetup
-        std::string cryptsetup_cmd = "echo \"" + passphrase + "\" | cryptsetup luksFormat " + drive_name + " --key-file=- -q";
+        std::string cryptsetup_cmd = "cryptsetup luksFormat " + drive_name + " --key-file=/tmp/LDM_tmp_dump.txt -q && shred /tmp/LDM_tmp_dump.txt";
         auto cryptsetup_res = EXEC_SUDO(cryptsetup_cmd);
     
         if (!cryptsetup_res.success) {
 
-            ERR(ErrorCode::ProcessFailure, "Failed to execute cryptsetup on: " + drive_name + " with passphrase: " +  passphrase);
+            ERR(ErrorCode::ProcessFailure, "Failed to execute cryptsetup on: " + drive_name);
             LOG_ERROR("Failed to execute cryptsetup on: " + drive_name, g_no_log);
             return;
 
@@ -1226,6 +1277,7 @@ public:
 // Tried my best to make this as safe and readable and maintainable as possible. v0.9.12.92
 
 void overwriteDriveData() { 
+    std::cout << BOLD << "\n[Drive Data Overwriting]" << RESET << " Choose a drive to overwrite all data:\n";
     const std::string drive_to_operate_on = ListDrivesUtil::listDrives(true);
 
     std::cout << YELLOW << "[WARNING]" << RESET << " Are you sure you want to overwrite all data on " << BOLD << drive_to_operate_on << RESET << "? This action cannot be undone! (y/n)\n";
@@ -1298,20 +1350,8 @@ void overwriteDriveData() {
 
 class MetadataReader {
 private:
-    struct DriveMetadata {
-        std::string name;
-        std::string size;
-        std::string model;
-        std::string serial;
-        std::string type;
-        std::string mountpoint;
-        std::string vendor;
-        std::string fstype;
-        std::string uuid;
-    };
-
-    static std::optional<DriveMetadata> getMetadata(const std::string& drive) {
-        DriveMetadata metadata;
+    static std::optional<DriveMetadataStruct::DriveMetadata> getMetadata(const std::string& drive) {
+        DriveMetadataStruct::DriveMetadata metadata;
         // -P (Pairs) is the key here. It output KEY="VALUE"
         std::string cmd = "lsblk -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINT,VENDOR,FSTYPE,UUID -P -p " + drive; 
 
@@ -1353,34 +1393,34 @@ private:
         return metadata;
     }
 
-    static void displayMetadata(const DriveMetadata& metadata) {
+    static void displayMetadata(const DriveMetadataStruct::DriveMetadata& metadata) {
         std::cout << "\n-------- Drive Metadata --------\n";
 
         auto printAttr = [&](const std::string& attr, const std::string& value) {
             std::cout << "| " << attr << ": " << (value.empty() ? "N/A" : value) << "\n";
         };
 
-        printAttr("Name", metadata.name);
-        printAttr("Size", metadata.size);
-        printAttr("Model", metadata.model);
-        printAttr("Serial", metadata.serial);
-        printAttr("Type", metadata.type);
-        printAttr("Mountpoint", metadata.mountpoint.empty() ? "Not mounted" : metadata.mountpoint);
-        printAttr("Vendor", metadata.vendor);
-        printAttr("Filesystem", metadata.fstype);
-        printAttr("UUID", metadata.uuid);
+        printAttr("Name", metadata.name.value_or("[ERROR] No Data available"));
+        printAttr("Size", metadata.size.value_or("[ERROR] No Data available"));
+        printAttr("Model", metadata.model.value_or("[ERROR] No Data available"));
+        printAttr("Serial", metadata.serial.value_or("[ERROR] No Data available"));
+        printAttr("Type", metadata.type.value_or("N/A"));
+        printAttr("Mountpoint", metadata.mountpoint.value_or("Not mounted"));
+        printAttr("Vendor", metadata.vendor.value_or("N/A"));
+        printAttr("Filesystem", metadata.fstype.value_or("N/A"));
+        printAttr("UUID", metadata.uuid.value_or("N/A"));
 
         if (metadata.type == "disk") {
 
             std::cout << "\n┌-─-─-─- SMART Data -─-─-─-─\n";
             
-            std::string smartCmd = "smartctl -i " + metadata.name;
+            std::string smartCmd = "smartctl -i " + *metadata.name;
             auto res = EXEC_QUIET_SUDO(smartCmd); 
 
             if (!res.success) {
 
-                ERR(ErrorCode::ProcessFailure, "Failed to retrieve SMART data for " + metadata.name);
-                LOG_ERROR("Failed to retrieve SMART data for " + metadata.name, g_no_log);
+                ERR(ErrorCode::ProcessFailure, "Failed to retrieve SMART data for " + *metadata.name);
+                LOG_ERROR("Failed to retrieve SMART data for " + *metadata.name, g_no_log);
                 return;
 
             }
@@ -1393,8 +1433,8 @@ private:
 
             } else {
 
-                ERR(ErrorCode::CorruptedData, "Failed to retrieve SMART data for " + metadata.name);
-                LOG_ERROR("Failed to retrieve SMART data for " + metadata.name, g_no_log);
+                ERR(ErrorCode::CorruptedData, "Failed to retrieve SMART data for " + *metadata.name);
+                LOG_ERROR("Failed to retrieve SMART data for " + *metadata.name, g_no_log);
 
             }
         }   
@@ -1404,10 +1444,9 @@ private:
 public:
     static void mainReader() {
         const std::string driveName = ListDrivesUtil::listDrives(true);
+        auto metadata = getMetadata(driveName);
 
         try {
-
-            auto metadata = getMetadata(driveName);
 
             if (!metadata.has_value()) {
 
@@ -1428,6 +1467,8 @@ public:
             return;
 
         }
+
+        DriveMetadataStruct::clearMetadata(*metadata);
     } 
 };
 
@@ -1468,6 +1509,7 @@ private:
 
             ERR(ErrorCode::IOError, "Cannot open ISO file: " + iso_path);
             LOG_ERROR("Cannot open ISO file: " + iso_path, g_no_log);
+            iso_file.close();
             return false;
 
         }
@@ -1480,6 +1522,7 @@ private:
 
             ERR(ErrorCode::IOError, "Failed to read ISO metadata from file: " + iso_path);
             LOG_ERROR(" Failed to read ISO metadata: " + iso_path, g_no_log);
+            iso_file.close();
             return false;
 
         }
@@ -1489,14 +1532,17 @@ private:
 
             ERR(ErrorCode::InvalidInput, "Invalid ISO signature in file: " + iso_path);
             LOG_ERROR("Invalid ISO signature in file: " + iso_path, g_no_log);
+            iso_file.close();
             return false;
 
         }
 
+        iso_file.close();
         return true;
     }
 
     static void BurnISOToStorageDevice() {
+        std::cout << "\nChoose the drive you want to burn the ISO/IMG file on:\n";
         try {
             const std::string drive_name = ListDrivesUtil::listDrives(true);
 
@@ -1591,13 +1637,38 @@ private:
     static void choose_mount_unmount(const std::string &mount_or_unmount) {
         if (mount_or_unmount == "mount") {
 
-            std::cout << "Enter the drive you want to " << mount_or_unmount << "\n";
+            std::cout << "\n[Mounting]\n";
+            std::cout << "Enter the drive you want to mount:\n";
             const std::string drive_name = ListDrivesUtil::listDrives(true);
 
             std::cout << "\nEnter the name for the drive under the name its mounted under '/mnt/':\n";
 
             std::string mount_name;
             std::getline(std::cin, mount_name);
+
+            if (mount_name.size() > 64) {
+
+                ERR(ErrorCode::InvalidInput, "Mount name too long; Expected max length of 64 characters");
+                LOG_ERROR("Mount name too long: " + mount_name, g_no_log);
+                return;
+
+            }
+
+            if (mount_name.empty()) {
+
+                ERR(ErrorCode::InvalidInput, "Mount name cannot be empty");
+                LOG_ERROR("Mount name cannot be empty", g_no_log);
+                return;
+
+            }
+
+            if (!mount_name.find_first_of("-'&|<>;\"") != std::string::npos) {
+
+                ERR(ErrorCode::InvalidInput, "Mount name contains invalid characters");
+                LOG_ERROR("Mount name contains invalid characters", g_no_log);
+                return;
+
+            }
 
             std::string mount_cmd = "mount " + drive_name + " /mnt/" + mount_name;
             auto mount_res = EXEC_SUDO(mount_cmd);
@@ -1612,12 +1683,21 @@ private:
 
         } else if (mount_or_unmount == "unmount") {
 
-            std::cout << "\nEnter the name, under wich the target drive is mounted (it maby under '/mnt/' or '/media/<user>/'):\n";
+            std::cout <<  "\n[Unmounting]\n";
+            std::cout << "Enter the name, under wich the target drive is mounted (it maby under '/mnt/' or '/media/<user>/'):\n";
 
             std::string unmount_name;
             std::getline(std::cin, unmount_name);
 
-            if (!unmount_name.find("/mnt/") && !unmount_name.find("/media/")) {
+            if(!fileExists(unmount_name)) {
+
+                ERR(ErrorCode::FileNotFound, "The path you entered doesnt exist: " + unmount_name);
+                LOG_ERROR("The path you entered doesnt exist: " + unmount_name, g_no_log);
+                return;
+
+            }
+
+            if (!unmount_name.find("/mnt/") != std::string::npos && !unmount_name.find("/media/") != std::string::npos) {
 
                 ERR(ErrorCode::InvalidDevice, "The path you entered doesnt contain /mnt/ or /media/, what results in an failing unmount operation");
                 LOG_ERROR("The path you entered doesnt contain /mnt/ or /media/, what results in an failing unmount operation", g_no_log);
@@ -1641,6 +1721,7 @@ private:
     }
 
     static void Restore_USB_Drive() {
+        std::cout << "\nChoose the USB/Drive you want to restore (overwrite with empty filesystem and partition table):\n";
         const std::string restore_device_name = ListDrivesUtil::listDrives(true);
         try {
 
@@ -1736,24 +1817,85 @@ private:
         }
     }
 
+    // ========== Menu that took that i made in 1:51 am in the morning ===========
+    enum MenuOptions {
+        Burniso = 1, MountDrive = 2, UnmountDrive = 3, RESTOREUSB = 4, Exit = 0
+    };
+
+    static std::vector<std::pair<int, std::string>> getMenuItems() {
+        return {
+            {Burniso, "Burn iso/img to storage device"},
+            {MountDrive, "Mount storage device"},
+            {UnmountDrive, "Unmount storage device"},
+            {RESTOREUSB, "Restore usb from iso"},
+            {Exit, "Return to main menu"}
+        };
+    }
+
+    static int noColorTuiMenu(const std::vector<std::pair<int, std::string>> &menuItems) {
+        term.enableRawMode();
+
+        int selected = 0;
+        int total = menuItems.size();
+
+        // Print static menu frame once
+        std::cout << "\n┌───────────────" << BOLD << " Mount menu " << RESET << "───────────────┐\n";
+        for (size_t i = 0; i < menuItems.size(); ++i) {
+            std::cout << "│ "
+                    << std::setw(2) << menuItems[i].first << ". "
+                    << std::left << std::setw(35) << menuItems[i].second
+                    << "  │\n";
+        }
+        std::cout << "└──────────────────────────────────────────┘\n";
+
+        // Move cursor UP to where the first selectable line is
+        std::cout << "\033[" << (total + 1) << "A";
+
+        while (true) {
+            // Redraw selector arrows
+            for (int i = 0; i < total; i++) {
+                std::cout << "\r"; // go to start of line
+
+                if (i == selected) std::cout << "│ > ";
+                else std::cout << "│   ";
+
+                std::cout << std::setw(2) << menuItems[i].first << ". "
+                        << std::left << std::setw(35) << menuItems[i].second;
+
+                std::cout << "\n";
+            }
+
+            // Move cursor back up to top of menu
+            std::cout << "\033[" << total << "A";
+
+            char c;
+            if (read(STDIN_FILENO, &c, 1) <= 0) continue;
+
+            if (c == '\x1b') {
+                char seq[2];
+                if (read(STDIN_FILENO, &seq, 2) == 2) {
+                    if (seq[1] == 'A') selected = (selected - 1 + total) % total; // up
+                    if (seq[1] == 'B') selected = (selected + 1) % total;         // down
+                }
+            } 
+            else if (c == '\n' || c == '\r') {
+                break;
+            }
+        }
+
+        // Move cursor down past menu
+        std::cout << "\033[" << (total + 1) << "B\n";
+
+        term.restoreTerminal();
+        return menuItems[selected].first;
+    }
+
+
 public:
     static void mainMountUtil() {
-        enum MenuOptions {
-            Burniso = 1, MountDrive = 2, UnmountDrive = 3, Exit = 0, RESTOREUSB = 4
-        };
-
-        std::cout << "\n┌────────────" << BOLD << " Mount menu " << RESET << "────────────┐\n";
-        std::cout << "│1. Burn iso/img to storage device   │\n";
-        std::cout << "│2. Mount storage device             │\n";
-        std::cout << "│3. Unmount storage device           │\n";
-        std::cout << "│4. Restore usb from iso             │\n";
-        std::cout << "│0. Return to main menu              │\n";
-        std::cout << "└────────────────────────────────────┘\n";
-
-        auto menu_input = InputValidation::getInt(0, 4);
-        if (!menu_input.has_value()) return;
+        int menu_input = noColorTuiMenu(getMenuItems());
         
-        switch (*menu_input) {
+        switch (menu_input) {
             case Burniso: {
                 BurnISOToStorageDevice();
                 break;  
@@ -2466,13 +2608,6 @@ class ConfigValueHandeling {
             return cfg;
         }
 
-        /**
-         * Helper function to check if a file exists at the given path.
-         * @param path The file path to check.
-         * @return true if the file exists, false otherwise.
-         */
-        static bool fileExists(const std::string& path) { struct stat buffer; return (stat(path.c_str(), &buffer) == 0); }
-
         static void configEditor() {
             CONFIG_VALUES cfg = configHandler();
             
@@ -2545,16 +2680,8 @@ class ConfigValueHandeling {
 
 class DriveFingerprinting {
 private:
-    struct DriveMetadata {
-        std::string name;
-        std::string size;
-        std::string model;
-        std::string serial;
-        std::string uuid;
-    };
-
-    static DriveMetadata getMetadata(const std::string& drive) {
-        DriveMetadata metadata;
+    static DriveMetadataStruct::DriveMetadata getMetadata(const std::string& drive) {
+        DriveMetadataStruct::DriveMetadata metadata;
         std::string cmd = "lsblk -o NAME,SIZE,MODEL,SERIAL,UUID -P -p " + drive; 
 
         auto res = EXEC_QUIET(cmd);
@@ -2627,18 +2754,19 @@ private:
 
 public:
     static void fingerprinting_main() {
+        std::cout << "\n[Drive Fingerprinting] Choose a drive to fingerprint:\n";
         const std::string drive_name_fingerprinting = ListDrivesUtil::listDrives(true);
 
-        DriveMetadata metadata = getMetadata(drive_name_fingerprinting);
+        DriveMetadataStruct::DriveMetadata metadata = getMetadata(drive_name_fingerprinting);
 
         LOG_INFO("Retrieved metadata for drive: " + drive_name_fingerprinting, g_no_log);
 
         std::string combined_metadata =
-            metadata.name + "|" +
-            metadata.size + "|" +
-            metadata.model + "|" +
-            metadata.serial + "|" +
-            metadata.uuid;
+            *metadata.name + "|" +
+            *metadata.size + "|" +
+            *metadata.model + "|" +
+            *metadata.serial + "|" +
+            *metadata.uuid;
 
         std::string fingerprint = fingerprinting(combined_metadata);
 
@@ -2647,6 +2775,8 @@ public:
         std::cout << BOLD << "Fingerprint:\n" << RESET;
         std::cout << "\r\033[K\n";
         std::cout << fingerprint << "\n";
+
+        DriveMetadataStruct::clearMetadata(metadata);
     }
 };
 
@@ -2705,6 +2835,8 @@ enum MenuOptionsMain {
     FINGERPRINT = 15,       UPDATER = 16
 };
 
+
+// total hours wasted trying to refactor the menu: 3
 class MainMenuIO {
     private:
         static void turnOffColor() {
@@ -2727,130 +2859,160 @@ class MainMenuIO {
             term.enableRawMode();
 
             int selected = 0;
+            int total = (int)menuItems.size();
+
+            auto res = EXEC("clear"); 
+            std::cout << "Use Up/Down arrows and Enter to select an option.\n\n";
+            std::cout << g_THEME_COLOR << "┌─────────────────────────────────────────────────┐\n" << RESET;
+            std::cout << g_THEME_COLOR << "│" << RESET << BOLD << "              DRIVE MANAGEMENT UTILITY           " << RESET << g_THEME_COLOR << "│\n" << RESET;
+            std::cout << g_THEME_COLOR << "├─────────────────────────────────────────────────┤\n" << RESET;
+            for (size_t i = 0; i < menuItems.size(); ++i) {
+
+                std::cout << g_THEME_COLOR << "│ " << RESET;
+
+                // Build inner content with fixed width
+                std::ostringstream inner;
+                inner << std::setw(2) << menuItems[i].first << ". " << std::left << std::setw(43) << menuItems[i].second;
+                std::string innerStr = inner.str();
+
+                if (menuItems[i].first == 0) {
+                    innerStr = g_THEME_COLOR + innerStr + RESET;
+                }
+
+                // Print right border and newline
+                std::cout << g_THEME_COLOR << " │\n" << RESET;
+
+            }
+            std::cout  << g_THEME_COLOR << "└─────────────────────────────────────────────────┘\n" << RESET;
+
+            std::cout << "\033[" << (total + 1) << "A";
+
             while (true) {
-                auto res = EXEC("clear"); 
-                std::cout << "Use Up/Down arrows and Enter to select an option.\n\n";
-                std::cout << g_THEME_COLOR << "┌─────────────────────────────────────────────────┐\n" << RESET;
-                std::cout << g_THEME_COLOR << "│" << RESET << BOLD << "              DRIVE MANAGEMENT UTILITY           " << RESET << g_THEME_COLOR << "│\n" << RESET;
-                std::cout << g_THEME_COLOR << "├─────────────────────────────────────────────────┤\n" << RESET;
-                for (size_t i = 0; i < menuItems.size(); ++i) {
 
-                    std::cout << g_THEME_COLOR << "│ " << RESET;
+                for (int i = 0; i < total; i++) {
+                    std::cout << "\r"; 
 
-                    // Build inner content with fixed width
+                    // Build inner content
                     std::ostringstream inner;
-                    inner << std::setw(2) << menuItems[i].first << ". " << std::left << std::setw(43) << menuItems[i].second;
+                    inner << std::setw(2) << menuItems[i].first << ". "
+                        << std::left << std::setw(43) << menuItems[i].second;
+
                     std::string innerStr = inner.str();
 
                     if (menuItems[i].first == 0) {
                         innerStr = g_THEME_COLOR + innerStr + RESET;
                     }
 
-                    // Apply inverse only to inner content
-                    if ((int)i == selected) std::cout << INVERSE;
+                    std::cout << g_THEME_COLOR << "│ " << RESET;
+
+                    // Apply inverse highlight if selected
+                    if (i == selected) std::cout << INVERSE;
                     std::cout << innerStr;
-                    if ((int)i == selected) std::cout << RESET;
+                    if (i == selected) std::cout << RESET;
 
-                    // Print right border and newline
-                    std::cout << g_THEME_COLOR << " │\n" << RESET;
-
+                    std::cout << g_THEME_COLOR << " │" << RESET << "\n";
                 }
-                std::cout  << g_THEME_COLOR << "└─────────────────────────────────────────────────┘\n" << RESET;
 
-                char c = 0;
+                // Move cursor back up to top of menu
+                std::cout << "\033[" << total << "A";
+
+                char c;
                 if (read(STDIN_FILENO, &c, 1) <= 0) continue;
 
-                if (c == '\x1b') { // escape sequence
+                if (c == '\x1b') {
                     char seq[2];
-
                     if (read(STDIN_FILENO, &seq, 2) == 2) {
-                        if (seq[1] == 'A') { // up
-                            selected = (selected - 1 + (int)menuItems.size()) % (int)menuItems.size();
-
-                        } else if (seq[1] == 'B') { // down
-                            selected = (selected + 1) % (int)menuItems.size();
-
-                        }
+                        if (seq[1] == 'A') selected = (selected - 1 + total) % total;
+                        if (seq[1] == 'B') selected = (selected + 1) % total;
                     }
-
-                } else if (c == '\n' || c == '\r') {
-                    break; // selection made
-                } else if (c == 'q' || c == 'Q') {
-                    // allow quick quit
-                    selected = (int)menuItems.size() - 1; // Exit item index
+                }
+                else if (c == '\n' || c == '\r') {
                     break;
                 }
             }
 
+            // Move cursor down past menu
+            std::cout << "\033[" << (total + 1) << "B\n";
+
             term.restoreTerminal();
             return selected;
-            
         }
 
         /**
          * @brief Same shit as colorTuiMenu, but with no colors and ">" cursor
-         * @param its defined in the main functions, it contains all avilable menu items
+         * @param menuItems its defined in the main functions, it contains all avilable menu items
          */
         static int noColorTuiMenu(const std::vector<std::pair<int, std::string>> &menuItems) {
             turnOffColor();
             term.enableRawMode();
 
             int selected = 0;
+            int total = (int)menuItems.size();
+
+            auto res = EXEC("clear");
+            std::cout << "Use Up/Down arrows and Enter to select an option.\n\n";
+            std::cout << "┌─────────────────────────────────────────────────────┐\n";
+            std::cout << "│" << BOLD << "                DRIVE MANAGEMENT UTILITY             " << RESET << "│\n";
+            std::cout << "├─────────────────────────────────────────────────────┤\n";
+
+            for (size_t i = 0; i < menuItems.size(); ++i) {
+
+                std::cout << "│ ";
+
+                // Build inner content with fixed width
+                std::ostringstream inner;
+                inner << std::setw(2) << menuItems[i].first << ". "
+                    << std::left << std::setw(44) << menuItems[i].second;
+
+                std::cout << inner.str();
+
+                std::cout << "  │\n";
+            }
+
+            std::cout << "└─────────────────────────────────────────────────────┘\n";
+
+            // Move cursor UP to where the first selectable line is
+            std::cout << "\033[" << (total + 1) << "A";
+
             while (true) {
-                auto res = EXEC("clear"); 
-                std::cout << "Use Up/Down arrows and Enter to select an option.\n\n";
-                std::cout << "┌─────────────────────────────────────────────────────┐\n";
-                std::cout << "│" << BOLD << "                DRIVE MANAGEMENT UTILITY             " << RESET << "│\n";
-                std::cout << "├─────────────────────────────────────────────────────┤\n";
+                // Redraw selector arrows
+                for (int i = 0; i < total; i++) {
+                    std::cout << "\r"; // go to start of line
 
-                for (size_t i = 0; i < menuItems.size(); ++i) {
+                    if (i == selected) std::cout << "│ > ";
+                    else std::cout << "│   ";
 
-                    std::cout << "│ ";
-
-                    // Cursor arrow
-                    if ((int)i == selected)
-                        std::cout << "> ";
-                    else
-                        std::cout << "  ";
-
-                    // Build inner content with fixed width
                     std::ostringstream inner;
                     inner << std::setw(2) << menuItems[i].first << ". "
-                        << std::left << std::setw(44) << menuItems[i].second;
+                          << std::left << std::setw(44) << menuItems[i].second;
 
-                    std::cout << inner.str();
-
-                    std::cout << "  │\n";
+                    std::cout << inner.str() << "  │\n";
                 }
 
-                std::cout << "└─────────────────────────────────────────────────────┘\n";
+                // Move cursor back up to top of menu
+                std::cout << "\033[" << total << "A";
 
-                char c = 0;
+                char c;
                 if (read(STDIN_FILENO, &c, 1) <= 0) continue;
 
-                if (c == '\x1b') { // escape sequence
+                if (c == '\x1b') {
                     char seq[2];
-
                     if (read(STDIN_FILENO, &seq, 2) == 2) {
-                        if (seq[1] == 'A') { // up
-                            selected = (selected - 1 + (int)menuItems.size()) % (int)menuItems.size();
-                        } else if (seq[1] == 'B') { // down
-                            selected = (selected + 1) % (int)menuItems.size();
-                        }
+                        if (seq[1] == 'A') selected = (selected - 1 + total) % total; // up
+                        if (seq[1] == 'B') selected = (selected + 1) % total;         // down
                     }
-
-                } else if (c == '\n' || c == '\r') {
-                    break; // selection made
-                } else if (c == 'q' || c == 'Q') {
-                    selected = (int)menuItems.size() - 1; // Exit item index
+                } 
+                else if (c == '\n' || c == '\r') {
                     break;
                 }
             }
 
-            term.restoreTerminal();
-            return selected; 
-        }
+            // Move cursor down past menu
+            std::cout << "\033[" << (total + 1) << "B\n";
 
+            term.restoreTerminal();
+            return selected;
+        }
 };
 
 // ==================== Main Function ====================
