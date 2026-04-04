@@ -1,19 +1,8 @@
-# Drive Manager Linux
+# Linux-Drive-Manager
 
-```text
-                   ██╗ 
-██████╗            ╚═╝            █████╗    ███╗   ██╗   ██████╗      
-██╔══██╗   ██████╗ ██╗ ██╗   ██╗ █╗    █    ████╗ ████║ █╗     █  ██████╗
-██║   ██║  ██╔═══╝ ██║ ╚██╗ ██╔╝ ██████╗    ██╔████╔██║  ██████╝  ██╔═══╝
-██║   ██║  ██║     ██║  ╚████╔╝  █╗════╝    ██║╚██╔╝██║       ██╗ ██║      
-██████╔╝   ██║     ██║   ╚██╔╝    █████╗    ██║ ╚═╝ ██║  ██████╔╝ ██║ 
-╚═════╝    ╚═╝     ╚═╝    ╚═╝     ╚════╝    ╚═╝     ╚═╝  ╚═════╝  ╚═╝
+A terminal-based drive management tool for Linux (Debian-based), written primarily in C++. 
 
-```
-
-A terminal-based drive management tool for Linux (Debian-based), written primarily in C++. This project provides a straightforward interface for managing storage devices — HDDs, SSDs, and more — directly from the command line.
-
----
+This application provides a straightforward interface for managing storage devices — HDDs, SSDs, and more — directly from the command line.
 
 ## Why This Utility Exists
 
@@ -42,35 +31,18 @@ but to add a safety and orchestration layer on top of them.
 
 ## Version Control
 
-**CLI:**
+#### Activly in Development
+
+### CLI:
 
 - Experimental: `v0.9.23.05`  
   _(new main menu + security fixes)_
 
-**GUI (Not getting Updated anymore):**
+### GUI (Not getting Updated anymore):
 
 - Rust GUI: `v0.1.5-alpha` (Lists drives; not feature complete)
 - C++ GUI: `v0.1.1-alpha`  
   _(GUI versions lag behind CLI/TUI)_
-
-**TUI (Not getting Updated anymore):**
-
-is basicly the CLI version
-
-**General Notes:**
-- Check for new releases regularly.
-- **GUI** -> discontiued
-
-	-> _(not recommended to use!)_
-  
-- **CLI** -> Main programm and getting TUI 	
-
-	-> _(use this)_
-
-
-**Launcher:**
-
-- currently in C, but it will be rewrtien in C++ so it is compatible with the new version of the Drive Manager
 
 ---
 
@@ -83,60 +55,72 @@ is basicly the CLI version
 
 ---
 
-## Currently in Development
-
-- Overhal of readability of code and code formatation
-
-See [issues](https://github.com/Dogwalker-kryt/Drive-Manager-for-Linux/issues) and [projects](https://github.com/Dogwalker-kryt/Drive-Manager-for-Linux/projects) for more.
-
----
-
 ## Project Structure
 
 ```
 /DriveMgr_CLI      - CLI source code (C++)
     /include       - Headers (.h)
     /src           - Core sources
+
 /DriveMgr_GUI      - GUI version (Rust/C++)
-build_src.sh       - Build/install script
-bin/               - Built executables
+
+/Launcher
+	launcher.cpp   - Launcher source code (C++)
+	launcher       - Launcher binary
+
+/Lume
+	Lume (elf)     - Text editor for Configuration editing in ldisk
+	main_lume.cpp  - Lume source code (C++)
+
+/Log and Key file
+	log.dat		   - Example log file
+
+setuo.py	       - Build/install script
 config.conf        - Example config
+
 ```
 
 ---
 
 ## Features
 
-- List all drives and partitions
-- Format, label, and set filesystem type
-- Drive encryption and decryption for USB Drives 
-- Partition resizing
-- S.M.A.R.T. drive health checking
-- Partition management
-- Data overwriteing
-- Change/history log (aka. Loggin system)
-- Metadata viewing by raw and S.M.A.R.T ways
-- Forensic tools (partialy experimental)
-- Log viewer
-- Clone a drive
-- Config file Editor, with my own tiny light weight text editor [Lume](https://github.com/Dogwalker-kryt/Lume)
-- Fingerprinting
-- Color theme choosable
-- More in development or im too lazy to add them here
+#### More in development 
+
+## Feature Overview
+
+| Feature        					| Status     	| Description                          					|
+|-----------------------------------|---------------|------------------------------------------------------|
+| List Drives and Partitions	    | Working    	| Shows all connected storage devices  					|
+| SMART disk health check		    | Working 	 	| Reads health data from drives        					|
+| Format Disk (lable, fstype)    	| Wokring  	 	| Helps Formatting drives 	            				|
+| Partition Management		 		| Wokring  	 	| Helps Manaing Partitions             					|
+| USB Drive En- an Decryption  		| Working	 	| Encrypts USB Drives 									|
+| Drive Overwriting					| Working	 	| Wipes drive to 0										|
+| Logging and config system			| Working		| Change history / For start preferences and colors		|
+| viewing Metadata					| Working	 	| View Metadata of Drives; Works with raw and SMART		|
+| Forensic/Recovery Tools			| Experimental	| For file recovery and stuff							|
+| Low viewer						| Working		| View last Loggs and wipe Log file clean if you want	|
+| Clone Drives						| Wokring		| Clone content of a Drive from one to another			|
+| Config viewer and editor with [Lume](https://github.com/Dogwalker-kryt/Lume)	| Working		| View Config setting and change them i prefered		|
+| Fingerprinting					| Working		| Create a sha256 hash Fingerprint of you drive			|
+| Color themes						| Wokring		| Choose color of Menu boxes and selection color		|
+
 
 ---
 
+
 ## Installation
 _If during the installation somthing unexpected happens, you can ask for help by opening an issue or a discussion_
-### Requirements
+### Tech Stack / Requirements
 
-- Linux (debian based recommended, but it should also run on other distros
+- Linux (debian based recommended, but it should also run on other distros)
 - C++17 compiler (e.g., g++) or higher
 - OpenSSL dev libraries
 - build-essential, smartmontools
 - Python3 with os libary 
 
 _The Requirements are only for when you manualy build the Application from scratch. If you use the build script, it will automaticly check and get the Required things_
+
 
 ### Clone the Repository
 
@@ -145,7 +129,11 @@ git clone https://github.com/Dogwalker-kryt/Drive-Manager-Linux
 cd Drive-Manager-Linux
 ```
 
-### Build Options
+
+### Step 1: Build the Binary
+
+You have 2 Options, the first is to run the automated script, the second is manualy build the binary you want
+
 
 #### Option 1: Automated Build (if you have python3 installed)
 
@@ -155,6 +143,7 @@ python3 setup.py
 
 _Defaults: creates necessary folders, builds the binary, and prompts for installation of missing packages._
 
+
 ##### Only if you want to have a command shortcut
 After this you can run the command_creation.py
 This will create in `/usr/local/bin` a script that will can be called in the terminal to start the Program
@@ -162,36 +151,65 @@ This will create in `/usr/local/bin` a script that will can be called in the ter
 ```
 sudo python3 command_creation.py
 ```
-#### Option 2: Manual Compile
 
-for C++ CLI
+#### Option 2: Manual Compilation
+
+##### for C++ CLI
+
+``` cd ``` into the ```DriveMgr_CLI``` folder, them run:
 ```sh
 make
 ```
-For the GUI version:
+##### For the GUI version:
+
+``` cd ``` into the ```DriveMgr_GUI``` folder, them run or the Rust version (if you have rust compiler):
 ```sh
-cd DriveMgr_GUI
 cargo build
 ```
+###### for C++ GUI:
 
-If required, create these directories by hand:
+``` cd ``` into the ```DriveMgr_GUI/C++-GTK-GUI``` folder, them run or the Rust version (if you have gtk):
+```sh
+make
+```
+
+### Step 2: Setup the Application envroment
+
+Here you have 2 ways again, first is when you used the python script, then all nessecary enviroment setups have been done.
+
+If you choosed to compile manualy then you need to apply folowing changes
+
+**Create DriveMgr folder:**
+Create DriveMgr folder in the ```~/.local``` dir
+
+``` mkdir -p ~/.local/share/DriveMgr ```
+
+
+**Create bin and other folders:**
+Create the ``` bin ``` dir in DriveMgr
 
 ```sh
 mkdir -p ~/.local/share/DriveMgr/bin
 mkdir -p ~/.local/share/DriveMgr/bin/bin
 mkdir -p ~/.local/share/DriveMgr/bin/launcher
 mkdir -p ~/.local/share/DriveMgr/bin/other_src
+```
+
+
+**Create data and move files:**
+Create the ``` data ``` dir in DriveMgr and move reqired file into it
+
+```sh
 mkdir -p ~/.local/share/DriveMgr/data
 touch ~/.local/share/DriveMgr/data/log.dat
-touch ~/.local/share/DriveMgr/data/keys.bin
-touch ~/.local/share/DriveMgr/data/config.conf
+mv [your location where the DriveMgr clone is right now]/Linux-Drive-Manager/config.conf ~/.local/share/DriveMgr/data
 ```
 
 ---
 
 ## Usage
 
-The minimum recommended terminal hight and width are:
+The recommended terminal hight and width are:
 - hight : 40
 - width : 120
 
@@ -199,12 +217,19 @@ when not using the min recommended hight and width, this can lead to corrupted t
 
 Start by running the program (root required for some features):
 
+**starting raw binary**
 ```sh
-sudo ./DriveMgr         # or through the launcher
-or
-sudo ./DriveMgr --operation-name  		# for quick acsess to operations
-or
-dmgr	# through command form the commandcreation
+sudo ./DriveMgr        
+```
+
+**with flags**
+```sh
+sudo ./DriveMgr --operation-name  		
+```
+
+**through Launcher**
+```sh
+sudo dmgr	
 ```
 
 When started, you'll see a menu, for example:
@@ -226,19 +251,6 @@ For dangerous actions, an extra key (e.g., generated security key) is required a
 
 ---
 
-## Example Workflow
-
-1. **Start the tool:**
-   ```sh
-   sudo ./DriveMgr_experi
-   ```
-2. **Select an operation:**
-   - E.g., View drive metadata: select with arrow and enter keys
-3. **Choose a drive with arrow and enter keys**
-4. **Follow prompts to complete your selected operation**
-
----
-
 ## License
 
 Distributed under the [GPL-3.0 License](./LICENSE).
@@ -256,12 +268,11 @@ Distributed under the [GPL-3.0 License](./LICENSE).
 
 ## Known Issues
 
-- Benchmarking not really working
-
+- Info block sometimes not printing right
+- Drive Fingerprinting sometimes returning to main menu before it could do anything
 
 **You found an issue?**
 If you found an issue that is presistent after restarting the Application, please report it by opening an issue with a detailed report
-
 
 **Disclaimer:** This tool is in active development. Features may not always be stable. Use at your own risk—always test on non-critical systems!
 
@@ -269,5 +280,4 @@ If you found an issue that is presistent after restarting the Application, pleas
 
 ## Do you like the Application?
 
-if you like the Drive Manager Utility, please leave a star
-
+**if you like the Drive Manager Utility, please leave a star**
