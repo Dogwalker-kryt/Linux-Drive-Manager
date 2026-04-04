@@ -182,7 +182,9 @@ If you choosed to compile manualy then you need to apply folowing changes
 **Create DriveMgr folder:**
 Create DriveMgr folder in the ```~/.local``` dir
 
-``` mkdir -p ~/.local/share/DriveMgr ```
+```sh 
+mkdir -p ~/.local/share/DriveMgr
+```
 
 
 **Create bin and other folders:**
