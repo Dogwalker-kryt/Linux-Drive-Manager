@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.23.05
+// v0.9.23.06
 
 // C++ libraries
 #include <iostream>
@@ -65,7 +65,7 @@
 // ==================== global variables and definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.23.05")
+#define VERSION std::string("v0.9.23.06")
 
 
 // === altTerminal Screen ===
@@ -2836,19 +2836,18 @@ enum MenuOptionsMain {
 };
 
 
-// total hours wasted trying to refactor the menu: 3
 class MainMenuIO {
     private:
-        static void turnOffColor() {
-            g_SELECTION_COLOR = RESET;
-            g_THEME_COLOR = RESET;
-            RED = RESET;
-            CYAN = RESET;
-            YELLOW = RESET;
-            GREEN = RESET;
-            MAGENTA = RESET;
-            BLUE = RESET;
-        }
+        // static void turnOffColor() {
+        //     g_SELECTION_COLOR = RESET;
+        //     g_THEME_COLOR = RESET;
+        //     RED = RESET;
+        //     CYAN = RESET;
+        //     YELLOW = RESET;
+        //     GREEN = RESET;
+        //     MAGENTA = RESET;
+        //     BLUE = RESET;
+        // }
 
     public:
         /**
@@ -2943,7 +2942,7 @@ class MainMenuIO {
          * @param menuItems its defined in the main functions, it contains all avilable menu items
          */
         static int noColorTuiMenu(const std::vector<std::pair<int, std::string>> &menuItems) {
-            turnOffColor();
+            // turnOffColor();
             term.enableRawMode();
 
             int selected = 0;
