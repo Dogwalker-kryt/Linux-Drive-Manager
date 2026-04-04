@@ -21,8 +21,13 @@
 
 #include <iostream>
 
-#define RED2 "\033[31m"
-#define RESET2 "\033[0m"
+extern bool g_no_color;
+
+namespace Color {
+    inline std::string reset_err()   { return g_no_color ? "" : "\033[0m"; }
+    inline std::string red_err()     { return g_no_color ? "" : "\033[31m"; }
+    inline std::string bold_err()    { return g_no_color ? "" : "\033[1m"; }
+}
 
 enum class ErrorCode {
     PermissionDenied,
@@ -57,11 +62,12 @@ inline const char* errorMessage(ErrorCode code) {
 }
 
 inline int printError(ErrorCode code, const std::string& extra_msg, const char* file, int line, const char* func) {
-    std::cerr << RED2
-              << "[ERROR] " << errorMessage(code)
+    std::cerr << Color::red_err() 
+              << Color::bold_err()
+              << "[ERROR] " << Color::reset_err() << Color::red_err() << errorMessage(code)
               << " (" << file << ":" << line << ", " << func << ")"
               << " - " << extra_msg
-              << RESET2 << "\n";
+              << Color::reset_err() << "\n";
     return 1;
 }
 
