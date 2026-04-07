@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.23.06
+// v0.9.24.13
 
 // C++ libraries
 #include <iostream>
@@ -60,24 +60,13 @@
 #include "../include/exec_cmd.h"
 #include "../include/LDM_updater.h"
 #include "../include/ListDrivesUtil.hpp"
+#include "../include/tests.hpp"
 
 // │ ├ ┤ ┘ └ ┐ ┌ ─
 // ==================== global variables and definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.23.06")
-
-
-// === altTerminal Screen ===
-/**
- * @brief Enters into a Alternate Terminal Screen
- */
-#define NEWTERMINALSCREEN "\033[?1049h"
-
-/**
- * @brief Leaves the Alternate Terminal Screen
- */
-#define LEAVETERMINALSCREEN "\033[?1049l"
+#define VERSION std::string("v0.9.24.13")
 
 
 // === TUI ===
@@ -760,6 +749,7 @@ int checkDriveHealth() {
 // ========== Drive Resizing ==========
 
 void resizeDrive() {
+    std::cout << "\n[Resize Drive] Choose a drive to resize\n";
     const std::string driveName = ListDrivesUtil::listDrives(true);
 
     std::cout << "Enter new size in GB for drive " << driveName << ":\n";
@@ -2729,8 +2719,6 @@ private:
 
         std::string fingerprint;
 
-        debug_msg("going to generate fingerpint based on metadata", g_debug);
-
         for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
 
             char hex[3];
@@ -2747,7 +2735,6 @@ private:
 
         }
 
-        debug_msg(fingerprint, g_debug);
         return fingerprint;
     }
 
@@ -2801,12 +2788,14 @@ void Info() {
 static void printUsage(const char* progname) {
     std::cout << "Usage: " << progname << " [options]\n";
     std::cout << BOLD << "Options:\n" << RESET 
-              << "  --version, -v       Print program version and exit\n"
+              << "  --version, -v       Print program version\n"
               << "  --help, -h          Show this help and exit\n"
-              << "  -n, --dry-run       Do not perform destructive operations\n"
-              << "  -C, --no-color      Disable colors (may affect the main menu)\n"
-              << "  --no-log            Disables all logging in the current session\n"
-              << "  --debug             Enables debug messages in current session\n"
+              << "  --dry-run, -n       Do not perform destructive operations\n"
+              << "  --no-color, -c      Disable colors (may affect the main menu)\n"
+              << "  --no-log, -nl       Disables all logging in the current session\n"
+              << "  --debug, -d         Enables debug messages in current session and Test option\n"
+              << "  --info, -i          Show program info\n"
+              << "  --logs, -l          Show log file content\n"
               << "  --operation-name    Goes directly to a specific operation without menu\n"
               << "                      Available operations:\n"
               << "                        --list-drives\n"
@@ -2820,11 +2809,6 @@ static void printUsage(const char* progname) {
               << "                        --info\n"
               << "                        --forensics\n"
               << "                        --clone-drive\n";
-
-    char input[2];
-    std::cout << "press any key to close\n";
-    fgets(input, sizeof(input), stdin);
-    std::cout << LEAVETERMINALSCREEN;
 }
 
 
@@ -2832,29 +2816,17 @@ enum MenuOptionsMain {
     EXITPROGRAM = 0,        LISTDRIVES = 1,         FORMATDRIVE = 2,        ENCRYPTDECRYPTDRIVE = 3,    RESIZEDRIVE = 4, 
     CHECKDRIVEHEALTH = 5,   ANALYZEDISKSPACE = 6,   OVERWRITEDRIVEDATA = 7, VIEWMETADATA = 8,           VIEWINFO = 9,
     MOUNTUNMOUNT = 10,      FORENSIC = 11,          LOGVIEW = 12,           CLONEDRIVE = 13,            CONFIG = 14,          
-    FINGERPRINT = 15,       UPDATER = 16
+    FINGERPRINT = 15,       UPDATER = 16,           TESTS = 17
 };
 
 
 class MainMenuIO {
-    private:
-        // static void turnOffColor() {
-        //     g_SELECTION_COLOR = RESET;
-        //     g_THEME_COLOR = RESET;
-        //     RED = RESET;
-        //     CYAN = RESET;
-        //     YELLOW = RESET;
-        //     GREEN = RESET;
-        //     MAGENTA = RESET;
-        //     BLUE = RESET;
-        // }
-
     public:
         /**
          * @brief Its the menu Tui selection with colors
          * @param menuItems its defined in the main functions, it contains all avilable menu items
          */
-        static int colorTuiMenu(const std::vector<std::pair<int, std::string>> &menuItems) {
+        static int colorTuiMenu(const std::vector<std::pair<MenuOptionsMain, std::string>> &menuItems) {
             term.enableRawMode();
 
             int selected = 0;
@@ -2941,8 +2913,7 @@ class MainMenuIO {
          * @brief Same shit as colorTuiMenu, but with no colors and ">" cursor
          * @param menuItems its defined in the main functions, it contains all avilable menu items
          */
-        static int noColorTuiMenu(const std::vector<std::pair<int, std::string>> &menuItems) {
-            // turnOffColor();
+        static int noColorTuiMenu(const std::vector<std::pair<MenuOptionsMain, std::string>> &menuItems) {
             term.enableRawMode();
 
             int selected = 0;
@@ -3022,7 +2993,7 @@ int main(int argc, char* argv[]) {
     ConfigValueHandeling::colorThemeHandler();
 
     const std::map<std::string, std::function<void()>> cli_commands = {
-        {"--list-drives", []()          { if (!checkRoot()) return; ListDrivesUtil::listDrives(false); }},
+        {"--list-drives", []()          { std::cout << LEAVETERMINALSCREEN; ListDrivesUtil::listDrives(false); }},
         {"--format-drive", []()         { if (!checkRoot()) return; formatDrive(); }},
         {"--encrypt-decrypt", []()      { if (!checkRoot()) return; USBEnDeCryptionUtils::mainUsbEnDecryption(); }}, 
         {"--resize-drive", []()         { if (!checkRoot()) return; resizeDrive(); }},
@@ -3030,10 +3001,9 @@ int main(int argc, char* argv[]) {
         {"--analyze-disk-space", []()   { analyzeDiskSpace(); }},
         {"--overwrite-drive-data", []() { if (!checkRoot()) return; overwriteDriveData(); }},
         {"--view-metadata", []()        { if (!checkRootMetadata()) return; MetadataReader::mainReader(); }},
-        {"--info", []()                 { Info(); }},
         {"--forensics", []()            { if (!checkRoot()) return; ForensicAnalysis::mainForensic(); }},
         {"--clone-drive", []()          { if (!checkRoot()) return; Clone::mainClone(); }},
-        {"--fingerprint", []()          { if (!checkRootMetadata()) return; DriveFingerprinting::fingerprinting_main(); }}
+        {"--fingerprint", []()          { if (!checkRootMetadata()) return;  DriveFingerprinting::fingerprinting_main(); }}
     };
 
     for (int i = 1; i < argc; i++) {
@@ -3043,15 +3013,17 @@ int main(int argc, char* argv[]) {
 
         if (a == "--no-log" || a == "-nl")                          { g_no_log = true; continue; }
 
-        if (a == "--help" || a == "-h")                             { printUsage(argv[0]); return 0; }
+        if (a == "--help" || a == "-h")                             { std::cout << LEAVETERMINALSCREEN; printUsage(argv[0]); return 0; }
 
-        if (a == "--version" || a == "-v")                          { std::cout << "DriveMgr CLI version: " << VERSION << "\n"; return 0; }
+        if (a == "--version" || a == "-v")                          { std::cout << LEAVETERMINALSCREEN; std::cout << "DriveMgr CLI version: " << VERSION << "\n"; return 0; }
         
         if (a == "--debug" || a == "-d")                            { g_debug = true; continue; }
 
-        if (a == "--logs" || a == "-l")                             { logViewer(); return 0; }
+        if (a == "--logs" || a == "-l")                             { logViewer(); std::cout << LEAVETERMINALSCREEN; return 0; }
 
         if (a == "--dry-run" || a == "-n")                          { g_dry_run = true; continue; }
+
+        if (a == "--info" || a == "-i")                            { std::cout << LEAVETERMINALSCREEN; Info(); return 0; }
 
         else {
             auto cmd = cli_commands.find(argv[i]);
@@ -3073,18 +3045,23 @@ int main(int argc, char* argv[]) {
 
     // ===== Menu Renderer =====
 
-    std::vector<std::pair<int, std::string>> menuItems = {
-        {1, "List Drives"},                             {2, "Format Drive"},                                {3, "Encrypt/Decrypt USB Drives"},
-        {4, "Resize Drive"},                            {5, "Check Drive Health"},                          {6, "Analyze Disk Space"},
-        {7, "Overwrite Drive Data"},                    {8, "View Drive Metadata"},                         {9, "View Info/help"},
-        {10, "Universal Disk tool (ISO/mount/...)"},    {11, "Forensic Analysis/Disk Image (experimental)"},
-        {12, "Log viewer"},                             {13, "Clone a Drive"},                              {14, "Config Editor"}, 
-        {15, "Fingerprint Drive"},                      {16, "Updater"},
-        {0, "Exit"}
+    std::vector<std::pair<MenuOptionsMain, std::string>> menuItems = {
+        {LISTDRIVES, "List Drives"},                            {FORMATDRIVE, "Format Drive"},                                  {ENCRYPTDECRYPTDRIVE, "Encrypt/Decrypt USB Drives"},
+        {RESIZEDRIVE, "Resize Drive"},                          {CHECKDRIVEHEALTH, "Check Drive Health"},                       {ANALYZEDISKSPACE, "Analyze Disk Space"},
+        {OVERWRITEDRIVEDATA, "Overwrite Drive Data"},           {VIEWMETADATA, "View Drive Metadata"},                          {VIEWINFO, "View Info/help"},
+        {MOUNTUNMOUNT, "Universal Disk tool (ISO/mount/...)"},  {FORENSIC, "Forensic Analysis/Disk Image (experimental)"},      {LOGVIEW, "Log viewer"},                                
+        {CLONEDRIVE, "Clone a Drive"},                          {CONFIG, "Config Editor"}, {FINGERPRINT, "Fingerprint Drive"},  {UPDATER, "Updater"},                                    
+        {EXITPROGRAM, "Exit"}
     };
 
+    if (g_debug || (VERSION.find("dev") != std::string::npos) == true) {
+
+        menuItems.insert(menuItems.end() - 1, {TESTS, "Tests"});
+    }
+
+
     // *func for no_color 
-    using menu_renderer = int(*)(const std::vector<std::pair<int, std::string>> &menuItems);
+    using menu_renderer = int(*)(const std::vector<std::pair<MenuOptionsMain, std::string>> &menuItems);
     menu_renderer menu_render_strategy = nullptr;
 
     if (g_no_color == true) {
@@ -3105,8 +3082,8 @@ int main(int argc, char* argv[]) {
             case LISTDRIVES: {
                 ListDrivesUtil::listDrives(false);
                 std::cout << BOLD << "\nPress '1' to return, '2' for advanced listing, or '3' to exit:\n" << RESET;
-                int menuques2;
-                std::cin >> menuques2;
+                auto menuques2 = InputValidation::getInt(1, 3);
+                
                 if (menuques2 == 1) continue;
                 else if (menuques2 == 2) listpartisions();
                 else if (menuques2 == 3) running = false;
@@ -3157,6 +3134,15 @@ int main(int argc, char* argv[]) {
 
             // 16. Updater
             case UPDATER:               { LDMUpdater::updaterMain(VERSION); menuQues(running); break; }
+
+            // 17. Tests
+            case TESTS: { 
+                auto res = run_all_tests_internal(); 
+                print_test_summary(res);
+                
+                menuQues(running); 
+                break; 
+            }
 
             // 0. Exit
             case EXITPROGRAM:           { running = false; break; }

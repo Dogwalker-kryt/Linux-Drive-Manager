@@ -55,6 +55,18 @@
 #include "debug.h"
 #include <random>
 
+
+// === altTerminal Screen ===
+/**
+ * @brief Enters into a Alternate Terminal Screen
+ */
+#define NEWTERMINALSCREEN "\033[?1049h"
+
+/**
+ * @brief Leaves the Alternate Terminal Screen
+ */
+#define LEAVETERMINALSCREEN "\033[?1049l"
+
 // ==================== global vars ====================
 extern bool g_no_color;
 extern bool g_dry_run;
@@ -367,25 +379,6 @@ void ldm_runtime_error(const std::string& error_message) {
 }
 
 
-// ==================== CMD Executer ====================
-
-class Terminalexec {
-public:
-    /**
-     * @brief Execute a shell command and return stdout (v2)
-     * @param command std::string containing the command to execute
-     * @return stdout output from the command
-     * 
-     * Improved version using std::string parameter instead of C-string.
-     * Captures both stdout and returns raw output without trimming.
-     */
-    static std::string execTerminalv2(const std::string &command) {
-        ExecResult r = run_command(command);
-        return r.stdout_str;
-    }
-};
-
-
 // ==================== Signatures for Recovery ====================
 
 /**
@@ -632,10 +625,10 @@ std::string filePathHandler(const std::string &file_path) {
 /**
  * @brief Removes the first n lines from a given string of text.
  * @param text The input string from which to remove lines.
- * @param n The number of lines to remove from the beginning of the text (default is 3).
+ * @param n The number of lines to remove from the beginning of the text (default is 1).
  * @return A new string with the first n lines removed. If the text has fewer than n lines, returns an empty string.
  */
-std::string removeFirstLines(const std::string& text, int n = 3) {
+std::string removeFirstLines(const std::string& text, int n = 1) {
     std::string out = text;
     for (int i = 0; i < n; i++) {
         size_t pos = out.find('\n');

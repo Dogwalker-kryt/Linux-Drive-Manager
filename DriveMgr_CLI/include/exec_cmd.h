@@ -15,11 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 #ifndef EXEC_CMD_H
 #define EXEC_CMD_H
 
 #include "DmgrLib.h"
+#include "command_exec.h"
 
 // ==================== Command Execution Abstraction ====================
 
@@ -29,67 +29,83 @@ enum class ExecMode {
     QUIET        // No output to console, only logging
 };
 
-// Using existing ExecResult from command_exec.h
-// Extended version with convenience members
+// Extended result type for high-level usage
 struct CmdExecResult {
-    bool success;
-    std::string output;
-    int exit_code;
+    bool success;          // true if exit_code == 0
+    std::string output;    // combined stdout + stderr
+    int exit_code;         // raw exit code from the process
 };
 
 class CmdExec {
-private:
-    static inline bool check_error(const std::string& output, const std::string& cmd) {
-        if (output.find("error") != std::string::npos || output.find("failed") != std::string::npos || output.find("ERROR") != std::string::npos) {
-            LOG_ERROR("Command failed: " + cmd, g_no_log);
-            return false;
-        }
-        return true;
-    }
-
 public:
-    // Main command executor
     static inline CmdExecResult run(const std::string& cmd, bool use_sudo = false, ExecMode mode = ExecMode::NORMAL) {
         CmdExecResult result{false, "", -1};
-        
+
         std::string final_cmd = cmd;
         if (use_sudo) final_cmd = "sudo " + cmd;
-        
+
         // Dry-run mode
         if (g_dry_run || mode == ExecMode::DRY_RUN) {
+
             std::cout << YELLOW << "[DRY-RUN] Would execute: " << final_cmd << RESET << "\n";
             LOG_DRYRUN(final_cmd, g_no_log);
+
             result.success = true;
+            result.exit_code = 0;
             return result;
+
         }
-        
-        // Execute via existing terminal functions
-        result.output = Terminalexec::execTerminalv2(final_cmd);
-        result.success = check_error(result.output, cmd);
-        
+
+        // Execute via low-level runner
+        ExecResult r = run_command(final_cmd);
+
+        // Fill high-level result
+        result.exit_code = r.exit_code;
+        result.success   = (r.exit_code == 0);
+
+        // You can choose: only stdout, or stdout+stderr.
+        // For drive ops, having both is usually better:
+        result.output = r.stdout_str;
+        if (!r.stderr_str.empty()) {
+
+            if (!result.output.empty())
+                result.output += "\n";
+
+            result.output += r.stderr_str;
+        }
+
+        // Logging / console behavior
         if (mode == ExecMode::QUIET) {
+
             LOG_EXEC(cmd + " -> " + (result.success ? "OK" : "FAILED"), g_no_log);
+
         } else {
-            if (!result.output.empty()) std::cout << result.output << "\n";
+
+            if (!result.output.empty())
+                std::cout << result.output << "\n";
+
         }
-        
+
         return result;
     }
-    
+
     // Convenience overloads
     static inline CmdExecResult run_sudo(const std::string& cmd, ExecMode mode = ExecMode::NORMAL) {
         return run(cmd, true, mode);
     }
-    
+
     static inline CmdExecResult run_quiet(const std::string& cmd, bool use_sudo = false) {
         return run(cmd, use_sudo, ExecMode::QUIET);
     }
-    
+
     // Check and throw on failure
     static inline CmdExecResult run_or_throw(const std::string& cmd, bool use_sudo = false) {
         CmdExecResult res = run(cmd, use_sudo);
         if (!res.success) {
-            throw std::runtime_error("Command failed: " + cmd + "\n" + res.output);
+
+            std::cout << LEAVETERMINALSCREEN;
+            throw std::runtime_error("Command failed: " + cmd + "\nExit code: " + std::to_string(res.exit_code) + "\nOutput:\n" + res.output);
+
         }
         return res;
     }
