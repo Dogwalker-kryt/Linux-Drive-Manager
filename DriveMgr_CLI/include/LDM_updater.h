@@ -115,8 +115,8 @@ public:
 
         std::string dev_suffix;
 
-        if (LOCAL_VERSION.find("-dev") != std::string::npos || LOCAL_VERSION.find("_dev") != std::string::npos) {
-            dev_suffix = YELLOW + "[INFO]" + RESET + "Local version contains " + BOLD + "'-dev'." + RESET + " Local version is a developer/custom/other release build\n";    
+        if (LOCAL_VERSION.find("dev") != std::string::npos || LOCAL_VERSION.find("dev") != std::string::npos) {
+            dev_suffix = YELLOW + "\n[INFO]" + RESET + "Local version contains " + BOLD + "'dev'." + RESET + " Local version is a developer/custom/other release build\n";    
         }
 
 
