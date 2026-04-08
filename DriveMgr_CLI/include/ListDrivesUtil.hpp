@@ -134,6 +134,10 @@ class ListDrivesUtil {
          * @returns selected drive name as string. TUI must be enabled for this to happen
          */
         static std::string listDrives(bool input_mode) {
+            if (g_selected_drive_by_flag == true) {
+                return g_selected_drive;
+            }
+
             static std::vector<std::string> drives;
             drives.clear();
 
@@ -223,5 +227,7 @@ class ListDrivesUtil {
 
             g_selected_drive = tuiForListDrives(drives, rows);
             return g_selected_drive;
-        }   
+        }  
+        
+        
 };
