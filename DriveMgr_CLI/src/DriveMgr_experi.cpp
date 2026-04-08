@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.24.14_dev
+// v0.9.24.35_dev
 
 // C++ libraries
 #include <iostream>
@@ -83,13 +83,15 @@ std::string g_SELECTION_COLOR  =   RESET;
        bool g_dry_run   =  false;
        bool g_no_color  =  false;
        bool g_no_log    =  false;
+       bool g_selected_drive_by_flag = false;
 static bool g_debug     =  false;
 
 
 // === other global things ===
-static std::vector<std::string> g_last_drives;
+std::vector<std::string> g_last_drives;
 std::string g_selected_drive;
-
+bool g_config_src_flag;
+std::string g_config_src_path;
 
 // ==================== DriveMetadata Struct Architecture ====================
 class DriveMetadataStruct {
@@ -726,6 +728,7 @@ void formatDrive() {
 // ========== Drive Health Check ==========
 
 int checkDriveHealth() {
+    std::cout << "[Check Drive health]\n";
     const std::string driveHealth_name = ListDrivesUtil::listDrives(true);
 
     try {
@@ -749,7 +752,7 @@ int checkDriveHealth() {
 // ========== Drive Resizing ==========
 
 void resizeDrive() {
-    std::cout << "\n[Resize Drive] Choose a drive to resize\n";
+    std::cout << "\n[Resize Drive]\n";
     const std::string driveName = ListDrivesUtil::listDrives(true);
 
     std::cout << "Enter new size in GB for drive " << driveName << ":\n";
@@ -1197,7 +1200,7 @@ private:
 
 public:
     static void mainUsbEnDecryption() {
-        std::cout << "\nChoose your USB Drive you want to En/Decrypt\n";
+        std::cout << "[En/Decrypt USB]\n";
 
         const std::string drive_name = ListDrivesUtil::listDrives(true);
 
@@ -1267,7 +1270,7 @@ public:
 // Tried my best to make this as safe and readable and maintainable as possible. v0.9.12.92
 
 void overwriteDriveData() { 
-    std::cout << BOLD << "\n[Drive Data Overwriting]" << RESET << " Choose a drive to overwrite all data:\n";
+    std::cout << BOLD << "\n[Drive Data Overwriting]" << RESET << "\n";
     const std::string drive_to_operate_on = ListDrivesUtil::listDrives(true);
 
     std::cout << YELLOW << "[WARNING]" << RESET << " Are you sure you want to overwrite all data on " << BOLD << drive_to_operate_on << RESET << "? This action cannot be undone! (y/n)\n";
@@ -1433,6 +1436,7 @@ private:
     
 public:
     static void mainReader() {
+        std::cout << "\n[Drive Metadata]\n";
         const std::string driveName = ListDrivesUtil::listDrives(true);
         auto metadata = getMetadata(driveName);
 
@@ -2542,7 +2546,14 @@ class ConfigValueHandeling {
 
         static CONFIG_VALUES configHandler() {
             CONFIG_VALUES cfg{}; 
+
             std::string conf_file = filePathHandler("/.local/share/DriveMgr/data/config.conf");
+
+            if (g_config_src_flag == true) {
+
+                conf_file = g_config_src_path;
+
+            }
 
             if (conf_file.empty()) {
 
@@ -2741,7 +2752,7 @@ private:
 
 public:
     static void fingerprinting_main() {
-        std::cout << "\n[Drive Fingerprinting] Choose a drive to fingerprint:\n";
+        std::cout << "\n[Drive Fingerprinting]\n";
         const std::string drive_name_fingerprinting = ListDrivesUtil::listDrives(true);
 
         DriveMetadataStruct::DriveMetadata metadata = getMetadata(drive_name_fingerprinting);
@@ -2796,6 +2807,8 @@ static void printUsage(const char* progname) {
               << "  --debug, -d         Enables debug messages in current session and Test option\n"
               << "  --info, -i          Show program info\n"
               << "  --logs, -l          Show log file content\n"
+              << "  --select <device>, -sd <device>         Pre select a drive you want to use\n"
+              << "  --config-src <path>, -cfg-src <path>    Use a diffrent config source temporalily\n"
               << "  --operation-name    Goes directly to a specific operation without menu\n"
               << "                      Available operations:\n"
               << "                        --list-drives\n"
@@ -2990,20 +3003,18 @@ class MainMenuIO {
 int main(int argc, char* argv[]) {
     std::cout << NEWTERMINALSCREEN;
 
-    ConfigValueHandeling::colorThemeHandler();
-
     const std::map<std::string, std::function<void()>> cli_commands = {
         {"--list-drives", []()          { std::cout << LEAVETERMINALSCREEN; ListDrivesUtil::listDrives(false); }},
-        {"--format-drive", []()         { if (!checkRoot()) return; formatDrive(); }},
-        {"--encrypt-decrypt", []()      { if (!checkRoot()) return; USBEnDeCryptionUtils::mainUsbEnDecryption(); }}, 
-        {"--resize-drive", []()         { if (!checkRoot()) return; resizeDrive(); }},
-        {"--check-drive-health", []()   { if (!checkRoot()) return; checkDriveHealth(); }},
-        {"--analyze-disk-space", []()   { analyzeDiskSpace(); }},
-        {"--overwrite-drive-data", []() { if (!checkRoot()) return; overwriteDriveData(); }},
-        {"--view-metadata", []()        { if (!checkRootMetadata()) return; MetadataReader::mainReader(); }},
-        {"--forensics", []()            { if (!checkRoot()) return; ForensicAnalysis::mainForensic(); }},
-        {"--clone-drive", []()          { if (!checkRoot()) return; Clone::mainClone(); }},
-        {"--fingerprint", []()          { if (!checkRootMetadata()) return;  DriveFingerprinting::fingerprinting_main(); }}
+        {"--format-drive", []()         { term.enableTerminosInput_diableAltTerminal(); if (!checkRoot()) return; formatDrive(); }},
+        {"--encrypt-decrypt", []()      { term.enableTerminosInput_diableAltTerminal(); if (!checkRoot()) return; USBEnDeCryptionUtils::mainUsbEnDecryption(); }}, 
+        {"--resize-drive", []()         { term.enableTerminosInput_diableAltTerminal(); if (!checkRoot()) return; resizeDrive(); }},
+        {"--check-drive-health", []()   { term.enableTerminosInput_diableAltTerminal(); if (!checkRoot()) return; checkDriveHealth(); }},
+        {"--analyze-disk-space", []()   { term.enableTerminosInput_diableAltTerminal(); analyzeDiskSpace(); }},
+        {"--overwrite-drive-data", []() { term.enableTerminosInput_diableAltTerminal(); if (!checkRoot()) return; overwriteDriveData(); }},
+        {"--view-metadata", []()        { term.enableTerminosInput_diableAltTerminal(); if (!checkRootMetadata()) return; MetadataReader::mainReader(); }},
+        {"--forensics", []()            { term.enableTerminosInput_diableAltTerminal(); if (!checkRoot()) return; ForensicAnalysis::mainForensic(); }},
+        {"--clone-drive", []()          { term.enableTerminosInput_diableAltTerminal(); if (!checkRoot()) return; Clone::mainClone(); }},
+        {"--fingerprint", []()          { term.enableTerminosInput_diableAltTerminal(); if (!checkRootMetadata()) return;  DriveFingerprinting::fingerprinting_main();  }}
     };
 
     for (int i = 1; i < argc; i++) {
@@ -3025,6 +3036,46 @@ int main(int argc, char* argv[]) {
 
         if (a == "--info" || a == "-i")                            { std::cout << LEAVETERMINALSCREEN; Info(); return 0; }
 
+        if (a == "--select" || a == "-sd")                         { 
+
+            g_selected_drive_by_flag = true; 
+            
+            g_selected_drive = argv[i + 1];
+            i++;
+            
+            if (!fileExists(g_selected_drive)) {
+
+                ERR(ErrorCode::DeviceNotFound, "");
+                LOG_ERROR("The device: '" + g_selected_drive + "' could not be found", g_no_log);
+                break;
+
+            }
+
+            continue; 
+        }
+
+        if (a == "--config-src" || a == "-cfg-src")                {
+
+            g_config_src_flag = true;
+
+            g_config_src_path = argv[i + 1];
+            i++;
+
+            std::string val_config_src_path = filePathHandler(g_config_src_path);
+
+            g_config_src_path = val_config_src_path;
+
+            if (!fileExists(g_config_src_path)) {
+
+                ERR(ErrorCode::FileNotFound, "Your custom config: '" + g_config_src_path + "coudnt be found");
+                LOG_ERROR("The file: '" + g_config_src_path + "' could not be found", g_no_log);
+                break;
+
+            } 
+
+            continue;
+        }
+
         else {
             auto cmd = cli_commands.find(argv[i]);
             
@@ -3034,6 +3085,9 @@ int main(int argc, char* argv[]) {
             }
         }
     }
+
+
+    ConfigValueHandeling::colorThemeHandler();
 
     ConfigValueHandeling::CONFIG_VALUES cfg = ConfigValueHandeling::configHandler();
     bool dry_run_mode = cfg.DRY_RUN_MODE;
