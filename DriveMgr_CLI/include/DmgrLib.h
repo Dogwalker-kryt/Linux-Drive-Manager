@@ -73,6 +73,11 @@ extern bool g_dry_run;
 extern std::string g_THEME_COLOR;
 extern std::string g_SELECTION_COLOR;
 extern std::string g_selected_drive;
+extern bool g_selected_drive_by_flag;
+extern std::vector<std::string> g_last_drives;
+extern std::string g_selected_drive;
+extern bool g_config_src_flag;
+extern std::string g_config_src_path;
 
 // ==================== Color ====================
 namespace Color {
@@ -129,6 +134,11 @@ class TerminosIO {
 
         void restoreTerminal() {
             tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        }
+
+        void enableTerminosInput_diableAltTerminal() {
+            initiateTerminosInput();
+            std::cout << LEAVETERMINALSCREEN;
         }
 };
 
