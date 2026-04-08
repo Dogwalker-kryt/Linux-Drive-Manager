@@ -71,11 +71,16 @@ class ListDrivesUtil {
                 for (int i = 0; i < total; i++) {
 
                     // Arrow indicator
-                    if (i == selected) { std::cout << g_SELECTION_COLOR << "> " << RESET; }
-                    else { std::cout << "  "; }
+                    if (i == selected) { 
+                        if (!g_no_color) std::cout << g_SELECTION_COLOR;
+                        std::cout << "> ";
+                        if (!g_no_color) std::cout << RESET;
+                    } else { 
+                        std::cout << "  "; 
+                    }
 
                     // Highlight row
-                    if (i == selected) std::cout << g_SELECTION_COLOR;
+                    if (i == selected && !g_no_color) std::cout << g_SELECTION_COLOR;
 
                     std::cout << std::left
                         << std::setw(3)  << i
@@ -86,7 +91,7 @@ class ListDrivesUtil {
                         << std::setw(10) << rows[i].fstype
                         << rows[i].status;
 
-                    if (i == selected) std::cout << RESET;
+                    if (i == selected && !g_no_color) std::cout << RESET;
 
                     std::cout << "\n"; 
                 }
@@ -136,21 +141,37 @@ class ListDrivesUtil {
             auto lsblk_res = EXEC_QUIET("lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE -d -n -p");
             std::string lsblk = lsblk_res.output;
 
+            
             // Print header
-            std::cout << CYAN << "\nAvailable Drives:" << RESET << "\n";
+            if (!g_no_color) std::cout << g_THEME_COLOR;
+            std::cout << "\nAvailable Drives:";
 
-            std::cout << std::left
-                << std::setw(2) 
-                << std::setw(5)  << "#"
-                << BOLD << std::setw(18) << "Device"      << RESET
-                << BOLD << std::setw(10) << "Size"        << RESET
-                << BOLD << std::setw(10) << "Type"        << RESET
-                << BOLD << std::setw(15) << "Mountpoint"  << RESET
-                << BOLD << std::setw(10) << "FSType"      << RESET
-                << "Status" << std::endl;
+            if (!g_no_color) std::cout << RESET;
+            std::cout << "\n";
 
-            std::cout << CYAN;
-            std::cout << std::string(90, '-') << "\n" << RESET;
+            std::cout << std::left << std::setw(5) << "#";
+            if (!g_no_color) std::cout << BOLD;
+            std::cout << std::setw(18) << "Device";
+
+            if (!g_no_color) std::cout << RESET << BOLD;
+            std::cout << std::setw(10) << "Size";
+
+            if (!g_no_color) std::cout << RESET << BOLD;
+            std::cout << std::setw(10) << "Type";
+
+            if (!g_no_color) std::cout << RESET << BOLD;
+            std::cout << std::setw(15) << "Mountpoint";
+
+            if (!g_no_color) std::cout << RESET << BOLD;
+            std::cout << std::setw(10) << "FSType";
+
+            if (!g_no_color) std::cout << RESET;
+            std::cout << "Status" << std::endl;
+
+            if (!g_no_color) std::cout << g_THEME_COLOR;
+            std::cout << std::string(90, '-') << "\n";
+            if (!g_no_color) std::cout << RESET;
+
 
             // Parse lsblk output
             std::istringstream iss(lsblk);
