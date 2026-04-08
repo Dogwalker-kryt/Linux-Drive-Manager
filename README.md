@@ -36,7 +36,7 @@ but to add a safety and orchestration layer on top of them.
 ### CLI:
 
 - Experimental: `v0.9.24.13`  
-  _(Fixed no color)_
+  _()_
 
 ### GUI (Not getting Updated anymore):
 
@@ -272,6 +272,7 @@ Distributed under the [GPL-3.0 License](./LICENSE).
 
 - Info block sometimes not printing right
 - Drive Fingerprinting sometimes returning to main menu before it could do anything
+- When using the --operation flags to start a specific opertion like for example --analyze-disk-space the whole output will corrupt and brake
 
 **You found an issue?**
 If you found an issue that is presistent after restarting the Application, please report it by opening an issue with a detailed report
