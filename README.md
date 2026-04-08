@@ -35,8 +35,8 @@ but to add a safety and orchestration layer on top of them.
 
 ### CLI:
 
-- Experimental: `v0.9.24.13`  
-  _()_
+- Experimental: `v0.9.24.14`  
+  _(fixed no color mode)_
 
 ### GUI (Not getting Updated anymore):
 
@@ -104,6 +104,7 @@ config.conf        - Example config
 | Config viewer and editor with [Lume](https://github.com/Dogwalker-kryt/Lume)	| Working		| View Config setting and change them i prefered		|
 | Fingerprinting					| Working		| Create a sha256 hash Fingerprint of you drive			|
 | Color themes						| Wokring		| Choose color of Menu boxes and selection color		|
+| Intigrated Tests					| Working       | Test side and helper functions right in the program   |
 
 
 ---
