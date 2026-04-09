@@ -35,8 +35,8 @@ but to add a safety and orchestration layer on top of them.
 
 ### CLI:
 
-- Experimental: `v0.9.24.13`  
-  _(Fixed no color)_
+- Experimental: `v0.9.24.35`  
+  _(new -cfg-src and -sd commands)_
 
 ### GUI (Not getting Updated anymore):
 
@@ -86,7 +86,7 @@ config.conf        - Example config
 
 #### More in development 
 
-## Feature Overview
+### Feature Overview
 
 | Feature        					| Status     	| Description                          					|
 |-----------------------------------|---------------|------------------------------------------------------|
@@ -104,7 +104,26 @@ config.conf        - Example config
 | Config viewer and editor with [Lume](https://github.com/Dogwalker-kryt/Lume)	| Working		| View Config setting and change them i prefered		|
 | Fingerprinting					| Working		| Create a sha256 hash Fingerprint of you drive			|
 | Color themes						| Wokring		| Choose color of Menu boxes and selection color		|
+| Intigrated Tests					| Working       | Test side and helper functions right in the program   |
 
+
+### Start Commands
+
+Every command has a normal name and a shortend abstract version
+
+| Command					| Description 									|
+|---------------------------|-----------------------------------------------|
+| --version, -v				| Prints the current version of the Dmgr 		|
+| --help, -h				| Prints the printusage for all CLI commands	|
+| --dry-run, -n				| Disables the execution of commads through the exec_cmd.h api in the current session |
+| --no-color, -c			| Disables the use of colors in the current session |
+| --no-log, -nl				| Disables loggin in the current session |
+| --debug, -d				| Enables that debug_msg() functions are printed and enables the usage of the Test option in the current session |
+| --info, -i				| Show Dmgr info |
+| --logs, -l 				| Show log file content |
+| --select [device], -sd [device] | Pre selects the drive you entered, skiping the drive selection in the current session |
+| --config-src [path], -cfg-src [path] | With this you can load the program with another config file in the current session |
+| --operation-name 			| With this you can directly jump to functions/operation wihtout using the menu |
 
 ---
 

@@ -73,10 +73,15 @@ extern bool g_dry_run;
 extern std::string g_THEME_COLOR;
 extern std::string g_SELECTION_COLOR;
 extern std::string g_selected_drive;
+extern bool g_selected_drive_by_flag;
+extern std::vector<std::string> g_last_drives;
+extern std::string g_selected_drive;
+extern bool g_config_src_flag;
+extern std::string g_config_src_path;
 
 // ==================== Color ====================
 namespace Color {
-    inline std::string reset()   { return g_no_color ? std::string() : "\033[0m"; }
+    inline std::string reset()   { return "\033[0m"; }
     inline std::string red()     { return g_no_color ? std::string() : "\033[31m"; }
     inline std::string green()   { return g_no_color ? std::string() : "\033[32m"; }
     inline std::string yellow()  { return g_no_color ? std::string() : "\033[33m"; }
@@ -84,7 +89,7 @@ namespace Color {
     inline std::string magenta() { return g_no_color ? std::string() : "\033[35m"; }
     inline std::string cyan()    { return g_no_color ? std::string() : "\033[36m"; }
     inline std::string bold()    { return g_no_color ? std::string() : "\033[1m"; }
-    inline std::string inverse() { return g_no_color ? std::string() : "\033[7m"; }
+    inline std::string inverse() { return "\033[7m"; }
 }
 
 // Color shortcuts
@@ -129,6 +134,11 @@ class TerminosIO {
 
         void restoreTerminal() {
             tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        }
+
+        void enableTerminosInput_diableAltTerminal() {
+            initiateTerminosInput();
+            std::cout << LEAVETERMINALSCREEN;
         }
 };
 
