@@ -54,6 +54,7 @@
 #include "command_exec.h"
 #include "debug.h"
 #include <random>
+#include "globals.h"
 
 
 // === altTerminal Screen ===
@@ -67,17 +68,6 @@
  */
 #define LEAVETERMINALSCREEN "\033[?1049l"
 
-// ==================== global vars ====================
-extern bool g_no_color;
-extern bool g_dry_run;
-extern std::string g_THEME_COLOR;
-extern std::string g_SELECTION_COLOR;
-extern std::string g_selected_drive;
-extern bool g_selected_drive_by_flag;
-extern std::vector<std::string> g_last_drives;
-extern std::string g_selected_drive;
-extern bool g_config_src_flag;
-extern std::string g_config_src_path;
 
 // ==================== Color ====================
 namespace Color {

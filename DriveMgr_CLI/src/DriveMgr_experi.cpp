@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.24.35_dev
+// v0.9.24.46_dev
 
 // C++ libraries
 #include <iostream>
@@ -61,12 +61,13 @@
 #include "../include/LDM_updater.h"
 #include "../include/ListDrivesUtil.hpp"
 #include "../include/tests.hpp"
+#include "../include/MenuIO.hpp"
 
 // │ ├ ┤ ┘ └ ┐ ┌ ─
 // ==================== global variables and definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.24.14_dev")
+#define VERSION std::string("v0.9.24.46_dev")
 
 
 // === TUI ===
@@ -662,18 +663,10 @@ public:
 
 
 void formatDrive() {
-    std::cout << "\n┌────── Choose an option for how to format ──────┐\n";
-    std::cout << "├─────────────────────────────────────────────────┤\n";
-    std::cout << "│ 1. Format drive                                 │\n";
-    std::cout << "│ 2. Format drive with label                      │\n";
-    std::cout << "│ 3. Format drive with label and filesystem       │\n";
-    std::cout << "└─────────────────────────────────────────────────┘\n";
     std::cout << "INFO: Standard formatting will automaticlly use ext4 filesystem\n";
-
-    auto fdinput = InputValidation::getInt(1, 3);
-    if (!fdinput.has_value()) return;
-
-    switch (*fdinput) {
+    int fdinput = GenericMenuIO::noColorTuiMenu("Format", {{1, "Format drive"}, {2, "Format drive with label"}, {3, "Format drive with label and filesystem"}, {0, "Exit"} });
+    
+    switch (fdinput) {
         case 1:
             {
                 std::cout << "Choose a Drive to Format\n";
@@ -714,6 +707,9 @@ void formatDrive() {
                 FormatUtils::formatDriveWithLabelAndFS(driveName, label, fsType);
             }
 
+            break;
+
+        case 0:
             break;
 
         default: {
@@ -1887,7 +1883,7 @@ private:
 
 public:
     static void mainMountUtil() {
-        int menu_input = noColorTuiMenu(getMenuItems());
+        int menu_input = GenericMenuIO::noColorTuiMenu("Mount/Unmount", getMenuItems()); 
         
         switch (menu_input) {
             case Burniso: {
@@ -2794,8 +2790,6 @@ void Info() {
     std::cout << "└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘\n";
 }
 
-// v0.9.19.28 last change:
-// added input and terminator for the alt terminal screen
 static void printUsage(const char* progname) {
     std::cout << "Usage: " << progname << " [options]\n";
     std::cout << BOLD << "Options:\n" << RESET 
@@ -2824,179 +2818,6 @@ static void printUsage(const char* progname) {
               << "                        --clone-drive\n";
 }
 
-
-enum MenuOptionsMain {
-    EXITPROGRAM = 0,        LISTDRIVES = 1,         FORMATDRIVE = 2,        ENCRYPTDECRYPTDRIVE = 3,    RESIZEDRIVE = 4, 
-    CHECKDRIVEHEALTH = 5,   ANALYZEDISKSPACE = 6,   OVERWRITEDRIVEDATA = 7, VIEWMETADATA = 8,           VIEWINFO = 9,
-    MOUNTUNMOUNT = 10,      FORENSIC = 11,          LOGVIEW = 12,           CLONEDRIVE = 13,            CONFIG = 14,          
-    FINGERPRINT = 15,       UPDATER = 16,           TESTS = 17
-};
-
-
-class MainMenuIO {
-    public:
-        /**
-         * @brief Its the menu Tui selection with colors
-         * @param menuItems its defined in the main functions, it contains all avilable menu items
-         */
-        static int colorTuiMenu(const std::vector<std::pair<MenuOptionsMain, std::string>> &menuItems) {
-            term.enableRawMode();
-
-            int selected = 0;
-            int total = (int)menuItems.size();
-
-            auto res = EXEC("clear"); 
-            std::cout << "Use Up/Down arrows and Enter to select an option.\n\n";
-            std::cout << g_THEME_COLOR << "┌─────────────────────────────────────────────────┐\n" << RESET;
-            std::cout << g_THEME_COLOR << "│" << RESET << BOLD << "              DRIVE MANAGEMENT UTILITY           " << RESET << g_THEME_COLOR << "│\n" << RESET;
-            std::cout << g_THEME_COLOR << "├─────────────────────────────────────────────────┤\n" << RESET;
-            for (size_t i = 0; i < menuItems.size(); ++i) {
-
-                std::cout << g_THEME_COLOR << "│ " << RESET;
-
-                // Build inner content with fixed width
-                std::ostringstream inner;
-                inner << std::setw(2) << menuItems[i].first << ". " << std::left << std::setw(43) << menuItems[i].second;
-                std::string innerStr = inner.str();
-
-                if (menuItems[i].first == 0) {
-                    innerStr = g_THEME_COLOR + innerStr + RESET;
-                }
-
-                // Print right border and newline
-                std::cout << g_THEME_COLOR << " │\n" << RESET;
-
-            }
-            std::cout  << g_THEME_COLOR << "└─────────────────────────────────────────────────┘\n" << RESET;
-
-            std::cout << "\033[" << (total + 1) << "A";
-
-            while (true) {
-
-                for (int i = 0; i < total; i++) {
-                    std::cout << "\r"; 
-
-                    // Build inner content
-                    std::ostringstream inner;
-                    inner << std::setw(2) << menuItems[i].first << ". "
-                        << std::left << std::setw(43) << menuItems[i].second;
-
-                    std::string innerStr = inner.str();
-
-                    if (menuItems[i].first == 0) {
-                        innerStr = g_THEME_COLOR + innerStr + RESET;
-                    }
-
-                    std::cout << g_THEME_COLOR << "│ " << RESET;
-
-                    // Apply inverse highlight if selected
-                    if (i == selected) std::cout << INVERSE;
-                    std::cout << innerStr;
-                    if (i == selected) std::cout << RESET;
-
-                    std::cout << g_THEME_COLOR << " │" << RESET << "\n";
-                }
-
-                // Move cursor back up to top of menu
-                std::cout << "\033[" << total << "A";
-
-                char c;
-                if (read(STDIN_FILENO, &c, 1) <= 0) continue;
-
-                if (c == '\x1b') {
-                    char seq[2];
-                    if (read(STDIN_FILENO, &seq, 2) == 2) {
-                        if (seq[1] == 'A') selected = (selected - 1 + total) % total;
-                        if (seq[1] == 'B') selected = (selected + 1) % total;
-                    }
-                }
-                else if (c == '\n' || c == '\r') {
-                    break;
-                }
-            }
-
-            // Move cursor down past menu
-            std::cout << "\033[" << (total + 1) << "B\n";
-
-            term.restoreTerminal();
-            return selected;
-        }
-
-        /**
-         * @brief Same shit as colorTuiMenu, but with no colors and ">" cursor
-         * @param menuItems its defined in the main functions, it contains all avilable menu items
-         */
-        static int noColorTuiMenu(const std::vector<std::pair<MenuOptionsMain, std::string>> &menuItems) {
-            term.enableRawMode();
-
-            int selected = 0;
-            int total = (int)menuItems.size();
-
-            auto res = EXEC("clear");
-            std::cout << "Use Up/Down arrows and Enter to select an option.\n\n";
-            std::cout << "┌─────────────────────────────────────────────────────┐\n";
-            std::cout << "│" << BOLD << "                DRIVE MANAGEMENT UTILITY             " << RESET << "│\n";
-            std::cout << "├─────────────────────────────────────────────────────┤\n";
-
-            for (size_t i = 0; i < menuItems.size(); ++i) {
-
-                std::cout << "│ ";
-
-                // Build inner content with fixed width
-                std::ostringstream inner;
-                inner << std::setw(2) << menuItems[i].first << ". "
-                    << std::left << std::setw(44) << menuItems[i].second;
-
-                std::cout << inner.str();
-
-                std::cout << "  │\n";
-            }
-
-            std::cout << "└─────────────────────────────────────────────────────┘\n";
-
-            // Move cursor UP to where the first selectable line is
-            std::cout << "\033[" << (total + 1) << "A";
-
-            while (true) {
-                // Redraw selector arrows
-                for (int i = 0; i < total; i++) {
-                    std::cout << "\r"; // go to start of line
-
-                    if (i == selected) std::cout << "│ > ";
-                    else std::cout << "│   ";
-
-                    std::ostringstream inner;
-                    inner << std::setw(2) << menuItems[i].first << ". "
-                          << std::left << std::setw(44) << menuItems[i].second;
-
-                    std::cout << inner.str() << "  │\n";
-                }
-
-                // Move cursor back up to top of menu
-                std::cout << "\033[" << total << "A";
-
-                char c;
-                if (read(STDIN_FILENO, &c, 1) <= 0) continue;
-
-                if (c == '\x1b') {
-                    char seq[2];
-                    if (read(STDIN_FILENO, &seq, 2) == 2) {
-                        if (seq[1] == 'A') selected = (selected - 1 + total) % total; // up
-                        if (seq[1] == 'B') selected = (selected + 1) % total;         // down
-                    }
-                } 
-                else if (c == '\n' || c == '\r') {
-                    break;
-                }
-            }
-
-            // Move cursor down past menu
-            std::cout << "\033[" << (total + 1) << "B\n";
-
-            term.restoreTerminal();
-            return selected;
-        }
-};
 
 // ==================== Main Function ====================
 
