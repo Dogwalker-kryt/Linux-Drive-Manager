@@ -23,38 +23,28 @@
 #include <iostream>
 #include <vector>
 #include <chrono>
-#include <ctime>
 #include <fstream>
-#include <ostream>
-#include <string>
-#include <cstdlib>
-#include <cstdio>
-#include <sstream>
-#include <memory>
-#include <stdexcept>
 #include <array>
-#include <limits>
-#include <iomanip>
-#include <filesystem>
 #include <cstring>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <pwd.h>
 #include <termios.h>
-#include <fcntl.h>
-#include <openssl/rand.h>
-#include <openssl/evp.h>
-#include <openssl/aes.h>
 #include <limits.h>
 #include <map>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/select.h>
-#include <sys/time.h>
-#include "command_exec.h"
-#include "debug.h"
+#include <unordered_map>
+#include <optional>
+#include <exception>
+#include <algorithm>
 #include <random>
+
+// Project headers
+#include "debug.h"
+#include "command_exec.h"
 #include "globals.h"
+#include "EnvSys.hpp"
+
+
 
 
 // === altTerminal Screen ===
@@ -132,7 +122,7 @@ class TerminosIO {
         }
 };
 
-TerminosIO term;
+inline TerminosIO term;
 
 // ==================== Logging ====================
 
@@ -173,6 +163,7 @@ private:
             case LogType::SUCCESS: return "[SUCCESS] ";
             case LogType::DRYRUN: return "[DRY-RUN] ";
             case LogType::EXEC: return "[EXEC] ";
+            default: return "[UNKNOWN] ";
         }
     }
 
@@ -185,48 +176,25 @@ private:
      */
     static void log(LogType type, const std::string& operation, const bool g_no_log, const char* func) {
         if (g_no_log == false) {
+
             auto now = std::chrono::system_clock::now();
             std::time_t currentTime = std::chrono::system_clock::to_time_t(now);
             char timeStr[100];
+
             std::strftime(timeStr, sizeof(timeStr), "%d-%m-%Y %H:%M", std::localtime(&currentTime));
-            //"%d-%m-%Y %M:%H" // new
-            //"%Y-%m-%d %H:%M:%S" // old
-            std::string logMsg = "[" + std::string(timeStr) + "] event: " + logMessage(type) + operation + " (location: " + std::string(func) + ")";
 
-            const char* sudo_user = std::getenv("SUDO_USER");
-            const char* user_env = std::getenv("USER");
-            const char* username = sudo_user ? sudo_user : user_env;
-            
-            if (!username) {
-                std::cerr << "[Logger Error] Could not determine username.\n";
-                return;
-            }
+            std::string log_msg = "[" + std::string(timeStr) + "] event: " + logMessage(type) + operation + " (location: " + std::string(func) + ")";
 
-            const struct passwd* pw = getpwnam(username);
-            if (!pw) {
-                std::cerr << "[Logger Error] Failed to get home directory for user: " << username << "\n";
-                return;
-            }
+            std::ofstream log_file(log_path, std::ios::app);
 
-            std::string homeDir = pw->pw_dir;
-            std::string logDir = homeDir + "/.local/share/DriveMgr/data/";
-            struct stat st;
-            if (stat(logDir.c_str(), &st) != 0) {
-                if (mkdir(logDir.c_str(), 0755) != 0 && errno != EEXIST) {
-                    std::cerr << RED << "[Logger Error] Failed to create log directory: " << logDir 
-                            << " Reason: " << strerror(errno) << "\n";
-                    return;
-                }
-            }
+            if (log_file) {
 
-            std::string logPath = logDir + "log.dat";
-            std::ofstream logFile(logPath, std::ios::app);
-            if (logFile) {
-                logFile << logMsg << std::endl;
+                log_file << log_msg << std::endl;
+
             } else {
-                std::cerr << RED << "[Logger Error] Unable to open log file: " << logPath
-                        << " Reason: " << strerror(errno) << RESET <<"\n";
+                std::cerr << RED << "[Logger Error] Unable to open log file: " << log_path << " Reason: " << strerror(errno) << RESET <<"\n";
             }
+
         } else {
             return;
         }
@@ -372,7 +340,7 @@ extern struct termios oldt, newt;
  * @param error_message The error message to include in the std::runtime_error exception.
  * @note This function should be used whenever a runtime error needs to be thrown, as it ensures that the terminal settings are properly reset before throwing the exception.
  */
-void ldm_runtime_error(const std::string& error_message) {
+inline void ldm_runtime_error(const std::string& error_message) {
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
     std::cout << "\033[?1049l";
     throw std::runtime_error("[ERROR] " + error_message);
@@ -435,7 +403,7 @@ namespace InputValidation {
      *         Contains the parsed integer on success, or std::nullopt if the input
      *         is empty, non-numeric, or out of range.
      */
-    std::optional<int> getInt(const std::vector<int> &valid_ints = {}) {
+    inline std::optional<int> getInt(const std::vector<int> &valid_ints = {}) {
         std::string s_input;
         std::getline(std::cin, s_input);
 
@@ -486,7 +454,7 @@ namespace InputValidation {
      *         - Contains the parsed integer if it lies within the range.
      *         - std::nullopt otherwise.
      */
-    std::optional<int> getInt(int min_value, int max_value) {
+    inline std::optional<int> getInt(int min_value, int max_value) {
         std::vector<int> valid_ints;
         valid_ints.reserve(max_value - min_value + 1);
 
@@ -512,7 +480,7 @@ namespace InputValidation {
      *         - std::nullopt if the input is empty, longer than one character,
      *           or not part of the allowed character list.
      */
-    std::optional<char> getChar(const std::vector<char> &valid_chars = {}) {
+    inline std::optional<char> getChar(const std::vector<char> &valid_chars = {}) {
         std::string s_input;
         std::getline(std::cin, s_input);
 
@@ -546,7 +514,7 @@ namespace InputValidation {
  * @brief Generates a random 10-character confirmation key consisting of uppercase letters, lowercase letters, and digits.
  * @return A randomly generated confirmation key as a string.
  */
-std::string confirmationKeyGenerator() {
+inline std::string confirmationKeyGenerator() {
     std::array<char, 62> chars_for_key = {
         'a','b','c','d','e','f','g','h','i','j',
         'k','l','m','n','o','p','q','r','s','t',
@@ -576,7 +544,7 @@ std::string confirmationKeyGenerator() {
  * @brief Prompts the user for a yes/no confirmation with a custom message.
  * @param prompt The message to display to the user when asking for confirmation.
  */
-bool askForConfirmation(const std::string &prompt) {
+inline bool askForConfirmation(const std::string &prompt) {
     std::cout << prompt << "(y/n)\n";
     char confirm;
     std::cin >> confirm;
@@ -597,7 +565,7 @@ bool askForConfirmation(const std::string &prompt) {
  * @param file_path The relative file path to be handled in home dir (e.g., "/.config/myapp/config.dat").
  * @returns the ready to use file path with
  */
-std::string filePathHandler(const std::string &file_path) {
+inline std::string filePathHandler(const std::string &file_path) {
     const char* sudo_user = getenv("SUDO_USER");
     const char* user_env = getenv("USER");
     const char* username = sudo_user ? sudo_user : user_env;
@@ -628,7 +596,7 @@ std::string filePathHandler(const std::string &file_path) {
  * @param n The number of lines to remove from the beginning of the text (default is 1).
  * @return A new string with the first n lines removed. If the text has fewer than n lines, returns an empty string.
  */
-std::string removeFirstLines(const std::string& text, int n = 1) {
+inline std::string removeFirstLines(const std::string& text, int n = 1) {
     std::string out = text;
     for (int i = 0; i < n; i++) {
         size_t pos = out.find('\n');
@@ -645,7 +613,7 @@ std::string removeFirstLines(const std::string& text, int n = 1) {
  * @brief This is the End question that is promted when a function failed/finished
  * @param running There is a variable in main that is named 'running', use it for only this
  */
-void menuQues(bool& running) {   
+inline void menuQues(bool& running) {   
     std::cout << BOLD <<"\nPress '1' for returning to the main menu, '2' to exit:\n" << RESET;
 
     auto menuques = InputValidation::getInt({1, 2});
@@ -662,11 +630,11 @@ void menuQues(bool& running) {
     }
 }
 
-bool isRoot() {
+inline bool isRoot() {
     return (getuid() == 0);
 }
 
-bool checkRoot() {
+inline bool checkRoot() {
     if (!isRoot()) {
         ERR(ErrorCode::PermissionDenied, "This function requires root privileges. Please run with 'sudo'");
         LOG_ERROR("Attempted to run without root privileges", g_no_log);
@@ -675,7 +643,7 @@ bool checkRoot() {
     return true;
 }
 
-bool checkRootMetadata() {
+inline bool checkRootMetadata() {
     if (!isRoot()) {
         std::cerr << YELLOW << "[WARNING] Running without root may limit functionality. For full access, please run with 'sudo'.\n" << RESET;
         LOG_WARNING("Running without root privileges", g_no_log);
