@@ -148,22 +148,84 @@ git clone https://github.com/Dogwalker-kryt/Drive-Manager-Linux
 cd Drive-Manager-Linux
 ```
 
+### Step 1: Setup the Application envroment
 
-### Step 1: Build the Binary
+There are 2 ways to do that:
+
+
+#### Option 1: Python setup script
+
+##### Step 1.1: Check
+
+If you choose to use the setup script you have to do/check the following:
+
+- Choose a path where the Dmgr should be installed in the ``` .env ``` file
+- You have one of these package managers:
+	- apt
+   	- zypper
+   	- dnf
+   	- yum
+   	- pacman
+- You have ``` python3 ``` installed
+
+
+##### Step 1.2: Run python script
+
+If everything is checked, then run this command:
+
+_(You may need to run it with ``` sudo ``` if the needed packages aren't installed)_
+```sh
+python3 setup.py
+```
+
+
+##### Step 1.3: Build
+
+If everything went successfull, 
+then you will be prompted if you want the script to compile the Dmgr.
+
+If you choose ``` y ``` then you finished the installtion and the Dmgr is ready to use
+
+
+#### Option 2: Manual Installtion
+
+##### Step 2.1: Application Enviroment setup
+
+Create in a dir you like
+```sh
+mkdir -p ~/.local/share/DriveMgr/bin
+mkdir -p ~/.local/share/DriveMgr/bin/bin
+mkdir -p ~/.local/share/DriveMgr/bin/launcher
+mkdir -p ~/.local/share/DriveMgr/bin/other_src
+```
+
+
+**Create data and move files:**
+Create the ``` data ``` dir in DriveMgr and move reqired file into it
+
+```sh
+mkdir -p ~/.local/share/DriveMgr/data
+touch ~/.local/share/DriveMgr/data/log.dat
+mv [your location where the DriveMgr clone is right now]/Linux-Drive-Manager/config.conf ~/.local/share/DriveMgr/data
+```
+
+### Step 2: Build the Binary
 
 You have 2 Options, the first is to run the automated script, the second is manualy build the binary you want
 
 
 #### Option 1: Automated Build (if you have python3 installed)
 
+- Choose your desired path where the Dmgr should live in, in the ``` .env ``` file!!!
+
 ```sh
 python3 setup.py 	
 ```
 
-_Defaults: creates necessary folders, builds the binary, and prompts for installation of missing packages._
+_Defaults: creates necessary folders, builds the binary (in the dir you choose in .env), and prompts for installation of missing packages._
 
 
-##### Only if you want to have a command shortcut
+##### Only if you want to have a command shortcut (Dont use, its under development)
 After this you can run the command_creation.py
 This will create in `/usr/local/bin` a script that will can be called in the terminal to start the Program
 
@@ -190,40 +252,6 @@ cargo build
 ``` cd ``` into the ```DriveMgr_GUI/C++-GTK-GUI``` folder, them run or the Rust version (if you have gtk):
 ```sh
 make
-```
-
-### Step 2: Setup the Application envroment
-
-Here you have 2 ways again, first is when you used the python script, then all nessecary enviroment setups have been done.
-
-If you choosed to compile manualy then you need to apply folowing changes
-
-**Create DriveMgr folder:**
-Create DriveMgr folder in the ```~/.local``` dir
-
-```sh 
-mkdir -p ~/.local/share/DriveMgr
-```
-
-
-**Create bin and other folders:**
-Create the ``` bin ``` dir in DriveMgr
-
-```sh
-mkdir -p ~/.local/share/DriveMgr/bin
-mkdir -p ~/.local/share/DriveMgr/bin/bin
-mkdir -p ~/.local/share/DriveMgr/bin/launcher
-mkdir -p ~/.local/share/DriveMgr/bin/other_src
-```
-
-
-**Create data and move files:**
-Create the ``` data ``` dir in DriveMgr and move reqired file into it
-
-```sh
-mkdir -p ~/.local/share/DriveMgr/data
-touch ~/.local/share/DriveMgr/data/log.dat
-mv [your location where the DriveMgr clone is right now]/Linux-Drive-Manager/config.conf ~/.local/share/DriveMgr/data
 ```
 
 ---
