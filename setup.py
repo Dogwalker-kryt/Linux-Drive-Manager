@@ -11,6 +11,33 @@ import time
 import shutil
 import subprocess
 
+
+# ============= EnvSys =============
+
+def read_env(path: str) -> dict:
+    env = {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+
+                key, value = line.split("=", 1)
+                value = value.strip().strip('"').strip("'")
+                env[key.strip()] = value
+    except Exception as e:
+        print(f"Error: {e}")
+    return env
+
+def EnvSys(path: str) -> str:
+    env = read_env(path)
+    Dmgr_root = env.get("DMGR_ROOT")
+    return Dmgr_root
+
+
 # ========== Configuration ==========
 
 PKG_MANAGER_CMD = {
@@ -304,9 +331,16 @@ def install_Dmgr():
         print("[ERROR] Script location invalid. Must be in DriveMgr repo folder")
         return
     
-    # Setup installation directories
-    home_dir = os.path.expanduser("~")
-    base_dir = os.path.join(home_dir, ".local/share/DriveMgr")
+    # Setup installation directories from EnvSys
+    env_path = EnvSys(".env")
+    if env_path:
+        if "~" in env_path:
+            env_path = os.path.expanduser(env_path)
+        base_dir = os.path.join(env_path, "DriveMgr")
+    else:
+        # Fallback to default location
+        home_dir = os.path.expanduser("~")
+        base_dir = os.path.join(home_dir, ".local/share/DriveMgr")
     
     print(f"Installing to: {base_dir}")
     
@@ -358,7 +392,15 @@ def uninstall_Dmgr():
     """Uninstall DriveMgr."""
     print("\n[Uninstalling Drive Manager]")
     
-    target_dir = os.path.expanduser("~/.local/share/DriveMgr")
+    # Get target directory from EnvSys
+    env_path = EnvSys(".env")
+    if env_path:
+        if "~" in env_path:
+            env_path = os.path.expanduser(env_path)
+        target_dir = os.path.join(env_path, "DriveMgr")
+    else:
+        # Fallback to default location
+        target_dir = os.path.expanduser("~/.local/share/DriveMgr")
     
     if not os.path.exists(target_dir):
         print("[!] DriveMgr is not installed")
@@ -407,7 +449,6 @@ def main():
             uninstall_Dmgr()
             break
         elif choice in ["q", "quit"]:
-            print("Exiting")
             sys.exit(0)
         else:
             print("[!] Invalid choice. Try again.\n")
