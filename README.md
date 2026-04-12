@@ -191,49 +191,26 @@ If you choose ``` y ``` then you finished the installtion and the Dmgr is ready 
 
 ##### Step 2.1: Application Enviroment setup
 
-Create in a dir you like
-```sh
-mkdir -p ~/.local/share/DriveMgr/bin
-mkdir -p ~/.local/share/DriveMgr/bin/bin
-mkdir -p ~/.local/share/DriveMgr/bin/launcher
-mkdir -p ~/.local/share/DriveMgr/bin/other_src
-```
+**Create in a dir you like the following dirs**
+- path/bin
+- path/bin/bin
+- path/bin/other_src
+- path/data
+- path/other
 
 
-**Create data and move files:**
-Create the ``` data ``` dir in DriveMgr and move reqired file into it
+**Create data and move files**
+Move the files in the right dirs: 
+- config.conf -> data/
+- log.dat -> data/
+- .env -> data/
+- *.md -> other/
+- launcher/ -> bin/
+- Lume/ -> bin/
+- DriveMgr_CLI and GUI -> bin/other_src
 
-```sh
-mkdir -p ~/.local/share/DriveMgr/data
-touch ~/.local/share/DriveMgr/data/log.dat
-mv [your location where the DriveMgr clone is right now]/Linux-Drive-Manager/config.conf ~/.local/share/DriveMgr/data
-```
 
 ### Step 2: Build the Binary
-
-You have 2 Options, the first is to run the automated script, the second is manualy build the binary you want
-
-
-#### Option 1: Automated Build (if you have python3 installed)
-
-- Choose your desired path where the Dmgr should live in, in the ``` .env ``` file!!!
-
-```sh
-python3 setup.py 	
-```
-
-_Defaults: creates necessary folders, builds the binary (in the dir you choose in .env), and prompts for installation of missing packages._
-
-
-##### Only if you want to have a command shortcut (Dont use, its under development)
-After this you can run the command_creation.py
-This will create in `/usr/local/bin` a script that will can be called in the terminal to start the Program
-
-```
-sudo python3 command_creation.py
-```
-
-#### Option 2: Manual Compilation
 
 ##### for C++ CLI
 
@@ -241,6 +218,9 @@ sudo python3 command_creation.py
 ```sh
 make
 ```
+After this move the Binary into the path/bin/bin folder 
+
+
 ##### For the GUI version:
 
 ``` cd ``` into the ```DriveMgr_GUI``` folder, them run or the Rust version (if you have rust compiler):
