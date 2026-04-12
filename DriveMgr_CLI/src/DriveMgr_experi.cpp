@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.24.46_dev
+// v0.9.24.57_dev
 
 // C++ libraries
 #include <iostream>
@@ -63,11 +63,11 @@
 #include "../include/tests.hpp"
 #include "../include/MenuIO.hpp"
 
-// │ ├ ┤ ┘ └ ┐ ┌ ─
+
 // ==================== global variables and definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.24.46_dev")
+#define VERSION std::string("v0.9.24.57_dev")
 
 
 // === TUI ===
@@ -94,7 +94,7 @@ std::string g_selected_drive;
 bool g_config_src_flag;
 std::string g_config_src_path;
 
-// ==================== DriveMetadata Struct Architecture ====================
+// ========== DriveMetadata Struct Architecture ==========
 class DriveMetadataStruct {
 public:    
     struct DriveMetadata {
@@ -480,6 +480,7 @@ void listpartisions() {
     }
 }
 
+
 // ========== Disk Space Analysis ==========··−·
  
 void analyzeDiskSpace() {
@@ -661,7 +662,6 @@ public:
     static void formatDriveWithLabelAndFS(const std::string& drive, const std::string& label, const std::string& fs) { format_drive(drive, label, fs); }
 };
 
-
 void formatDrive() {
     std::cout << "INFO: Standard formatting will automaticlly use ext4 filesystem\n";
     int fdinput = GenericMenuIO::noColorTuiMenu("Format", {{1, "Format drive"}, {2, "Format drive with label"}, {3, "Format drive with label and filesystem"}, {0, "Exit"} });
@@ -721,6 +721,7 @@ void formatDrive() {
     }
 }
 
+
 // ========== Drive Health Check ==========
 
 int checkDriveHealth() {
@@ -744,6 +745,7 @@ int checkDriveHealth() {
 
    return 0;
 }
+
 
 // ========== Drive Resizing ==========
 
@@ -798,6 +800,7 @@ void resizeDrive() {
 
     }
 }
+
 
 // ========== Drive Encryption ========== 
 // new USB only encryption/decryption impl
@@ -1262,6 +1265,7 @@ public:
     }
 };
 
+
 // ========== Drive Data Overwriting ==========
 // Tried my best to make this as safe and readable and maintainable as possible. v0.9.12.92
 
@@ -1333,6 +1337,7 @@ void overwriteDriveData() {
 
     }
 }
+
 
 // ========== Drive Metadata Reader ==========
 // getMetadata refactor
@@ -1461,6 +1466,7 @@ public:
         DriveMetadataStruct::clearMetadata(*metadata);
     } 
 };
+
 
 // ========== Mounting and Burning Utilities ==========
 // IsoFileMetadataChecker and IsoBurner refactored; v0.9.13.93
@@ -1920,6 +1926,7 @@ public:
     }
 };
 
+
 // ========== Forensic Analysis Utilities ==========
 
 class ForensicAnalysis {
@@ -1960,18 +1967,16 @@ private:
 
     // recoverymain + side functions
     static void recovery() {
-        std::cout << "\n-------- Recovery ---------−−−\n";
-        std::cout << "1. files recovery\n";
-        std::cout << "2. partition recovery\n";
-        std::cout << "3. system recovery\n";
-        std::cout << "0. Return to main menu\n";
-        std::cout << "--------------------------------\n";
-        std::cout << "Enter your choice:\n"; 
-        
-        auto scan_drive_recover = InputValidation::getInt(0, 3);
-        if (!scan_drive_recover.has_value()) return;
+        std::vector<std::pair<int, std::string>> recovery_menu = {
+            {1, "Files Recovery"},
+            {2, "Partition Recovery"},
+            {3, "System Recovery"},
+            {0, "Return to main menu"}
+        };
 
-        switch (*scan_drive_recover) {
+        int menu_choice = GenericMenuIO::noColorTuiMenu("Recovery", recovery_menu);
+
+        switch (menu_choice) {
             case 1: {
                 filerecovery();
                 break;
@@ -2316,17 +2321,16 @@ public:
             Info = 1, CreateDisktImage = 2, ScanDrive = 3, Exit = 0
         };
 
-        std::cout << "\n┌──────── Forensic Analysis menu ─────────┐\n";
-        std::cout << "│ 1. Info of the Analysis tool            │\n";
-        std::cout << "│ 2. Create a disk image of a drive       │\n";
-        std::cout << "│ 3. recover of system, files,..          │\n";                                                                                                                                                                                                                                                                                                                                                                                                        
-        std::cout << "│ 0. Exit                                 │\n";                                                                                                                                                                                                                                                                                                                                                                                               
-        std::cout << "└─────────────────────────────────────────┘\n";
-        
-        auto forensic_menu_input = InputValidation::getInt(0, 3);
-        if (!forensic_menu_input.has_value()) return;
+        std::vector<std::pair<int, std::string>> forensic_menu = {
+            {Info, "Info about the Forensic Analysis tool"},
+            {CreateDisktImage, "Create a disk image of a drive"},
+            {ScanDrive, "Recover system/files/partitions..."},
+            {Exit, "Return to main menu"}
+        };
 
-        switch (static_cast<ForensicMenuOptions>(*forensic_menu_input)) {
+        int menu_choice = GenericMenuIO::noColorTuiMenu("Forensic Analysis", forensic_menu);
+
+        switch (static_cast<ForensicMenuOptions>(menu_choice)) {
             case Info: {
                 std::cout << BOLD << "\n[Info] This is a custom made forensic analysis tool for the Drive Manager\n";
                 std::cout << "Its not using actual forsensic tools, but still if its finished would be fully functional\n";
@@ -2355,6 +2359,7 @@ public:
         }
     }
 };
+
 
 // ========== Clone Drive Utility ==========
 
@@ -2464,18 +2469,19 @@ class Clone {
         }
 };
 
+
 // ========== Log Viewer Utility ==========
 
 void logViewer() {
-    std::string path = filePathHandler("/.local/share/DriveMgr/data/log.dat");
+    
 
-    std::ifstream file(path);
+    std::ifstream file(log_path);
 
     if (!file) {
 
-        LOG_ERROR("Unable to read log file at " + path, g_no_log);
-        ERR(ErrorCode::FileNotFound, "Unable to read log file at path: " + path);
-        std::cout << "Please read the log file manually at: " << path << "\n";
+        LOG_ERROR("Unable to read log file at " + log_path.string(), g_no_log);
+        ERR(ErrorCode::FileNotFound, "Unable to read log file at path: " + log_path.string());
+        std::cout << "Please read the log file manually at: " << log_path.string() << "\n";
         return;
 
     }
@@ -2519,12 +2525,13 @@ void logViewer() {
 
     if (clear_loggs == 'y') {
 
-        Logger::clearLoggs(path);
+        Logger::clearLoggs(log_path);
 
     }
 
     return;
 }
+
 
 // ========== Configuration Editor Utility ==========
 // v0.9.19.23; added fallbacks for config values if the user doesnt specify them in the config file
@@ -2543,15 +2550,13 @@ class ConfigValueHandeling {
         static CONFIG_VALUES configHandler() {
             CONFIG_VALUES cfg{}; 
 
-            std::string conf_file = filePathHandler("/.local/share/DriveMgr/data/config.conf");
-
             if (g_config_src_flag == true) {
 
-                conf_file = g_config_src_path;
+                config_path = g_config_src_path;
 
             }
 
-            if (conf_file.empty()) {
+            if (config_path.empty()) {
 
                 ERR(ErrorCode::DataUnavailable, "Using default config values!");
                 LOG_ERROR("config file is using defautl values, due to emtpy config", g_no_log);
@@ -2559,12 +2564,20 @@ class ConfigValueHandeling {
 
             }
 
-            std::ifstream config_file(conf_file);
+            if (!std::filesystem::exists(config_path)) {
+
+                ERR(ErrorCode::FileNotFound, "Config file not found at path: " + config_path.string() + ". Check if the config exists and is readable. Returning default config values.");
+                LOG_ERROR("Config file not found at path: " + config_path.string(), g_no_log);
+                return cfg;
+
+            }
+
+            std::ifstream config_file(config_path);
 
             if (!config_file.is_open()) {
 
                 LOG_ERROR("[Config_handler] Cannot open config file", g_no_log);
-                ERR(ErrorCode::FileNotFound, "Cannot open config file at path: " + conf_file + ". Check if the config exists and is readable. Returning default config values.");
+                ERR(ErrorCode::FileNotFound, "Cannot open config file at path: " + config_path.string() + ". Check if the config exists and is readable. Returning default config values.");
                 return cfg;
 
             }
@@ -2607,7 +2620,7 @@ class ConfigValueHandeling {
 
         static void configEditor() {
             CONFIG_VALUES cfg = configHandler();
-            
+
             std::cout << "┌─────" << BOLD << " config values " << RESET << "─────┐\n";
             std::cout << "│ UI mode: "          << cfg.UI_MODE               << "\n";
             std::cout << "│ Compile mode: "     << cfg.COMPILE_MODE          << "\n";
@@ -2623,23 +2636,24 @@ class ConfigValueHandeling {
 
             if (config_edit_confirm == 'y') {
 
-                std::string lumePath = filePathHandler("/.local/share/DriveMgr/bin/Lume/Lume");
-
-                if (!fileExists(lumePath)) {
-
-                    ERR(ErrorCode::FileNotFound, "Lume editor not found at: " + lumePath);
+                if (!std::filesystem::exists(lume_path)) {
+                    ERR(ErrorCode::FileNotFound, "Lume editor not found at: " + lume_path.string());
+                    LOG_ERROR("Lume editor missing at: " + lume_path.string(), g_no_log);
                     return;
-
                 }
 
-                std::string configPath = filePathHandler("/.local/share/DriveMgr/data/config.conf");
-                std::string config_editor_cmd_run = "\"" + lumePath + "\" \"" + configPath + "\"";
+                if (!std::filesystem::exists(config_path)) {
+                    ERR(ErrorCode::FileNotFound, "Config file not found at: " + config_path.string());
+                    LOG_ERROR("Config file missing at: " + config_path.string(), g_no_log);
+                    return;
+                }
+
+                std::string cmd = "\"" + lume_path.string() + "\" \"" + config_path.string() + "\"";
 
                 std::cout << LEAVETERMINALSCREEN << std::flush;
-
                 term.restoreTerminal();
 
-                system(config_editor_cmd_run.c_str());
+                system(cmd.c_str());
 
                 std::cout << NEWTERMINALSCREEN << std::flush;
 
@@ -2671,6 +2685,7 @@ class ConfigValueHandeling {
             }
         }
 };
+
 
 // ========== Drive Fingerprinting Utility ==========
 // v0.9.19.24; applyed new ERR error handling
@@ -2774,6 +2789,7 @@ public:
     }
 };
 
+
 // ========== Main Menu and Utilities ==========
 
 void Info() {
@@ -2841,19 +2857,19 @@ int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; i++) {
         std::string a(argv[i]); 
 
-        if (a == "--no-color" || a == "-c")                         { g_no_color = true; continue; }
+        if (a == "--no-color" || a == "-c")                        { g_no_color = true; continue; }
 
-        if (a == "--no-log" || a == "-nl")                          { g_no_log = true; continue; }
+        if (a == "--no-log" || a == "-nl")                         { g_no_log = true; continue; }
 
-        if (a == "--help" || a == "-h")                             { std::cout << LEAVETERMINALSCREEN; printUsage(argv[0]); return 0; }
+        if (a == "--help" || a == "-h")                            { std::cout << LEAVETERMINALSCREEN; printUsage(argv[0]); return 0; }
 
-        if (a == "--version" || a == "-v")                          { std::cout << LEAVETERMINALSCREEN; std::cout << "DriveMgr CLI version: " << VERSION << "\n"; return 0; }
+        if (a == "--version" || a == "-v")                         { std::cout << LEAVETERMINALSCREEN; std::cout << "DriveMgr CLI version: " << VERSION << "\n"; return 0; }
         
-        if (a == "--debug" || a == "-d")                            { g_debug = true; continue; }
+        if (a == "--debug" || a == "-d")                           { g_debug = true; continue; }
 
-        if (a == "--logs" || a == "-l")                             { logViewer(); std::cout << LEAVETERMINALSCREEN; return 0; }
+        if (a == "--logs" || a == "-l")                            { logViewer(); std::cout << LEAVETERMINALSCREEN; return 0; }
 
-        if (a == "--dry-run" || a == "-n")                          { g_dry_run = true; continue; }
+        if (a == "--dry-run" || a == "-n")                         { g_dry_run = true; continue; }
 
         if (a == "--info" || a == "-i")                            { std::cout << LEAVETERMINALSCREEN; Info(); return 0; }
 

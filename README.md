@@ -35,8 +35,8 @@ but to add a safety and orchestration layer on top of them.
 
 ### CLI:
 
-- Experimental: `v0.9.24.46`  
-  _(new -cfg-src and -sd commands)_
+- Experimental: `v0.9.24.57`  
+  _(Variable path system (EnvSys), for variable Dmgr location)_
 
 ### GUI (Not getting Updated anymore):
 
@@ -148,30 +148,69 @@ git clone https://github.com/Dogwalker-kryt/Drive-Manager-Linux
 cd Drive-Manager-Linux
 ```
 
+### Step 1: Setup the Application envroment
 
-### Step 1: Build the Binary
-
-You have 2 Options, the first is to run the automated script, the second is manualy build the binary you want
+There are 2 ways to do that:
 
 
-#### Option 1: Automated Build (if you have python3 installed)
+#### Option 1: Python setup script
 
+##### Step 1.1: Check
+
+If you choose to use the setup script you have to do/check the following:
+
+- Choose a path where the Dmgr should be installed in the ``` .env ``` file
+- You have one of these package managers:
+	- apt
+   	- zypper
+   	- dnf
+   	- yum
+   	- pacman
+- You have ``` python3 ``` installed
+
+
+##### Step 1.2: Run python script
+
+If everything is checked, then run this command:
+
+_(You may need to run it with ``` sudo ``` if the needed packages aren't installed)_
 ```sh
-python3 setup.py 	
+python3 setup.py
 ```
 
-_Defaults: creates necessary folders, builds the binary, and prompts for installation of missing packages._
+
+##### Step 1.3: Build
+
+If everything went successfull, 
+then you will be prompted if you want the script to compile the Dmgr.
+
+If you choose ``` y ``` then you finished the installtion and the Dmgr is ready to use
 
 
-##### Only if you want to have a command shortcut
-After this you can run the command_creation.py
-This will create in `/usr/local/bin` a script that will can be called in the terminal to start the Program
+#### Option 2: Manual Installtion
 
-```
-sudo python3 command_creation.py
-```
+##### Step 2.1: Application Enviroment setup
 
-#### Option 2: Manual Compilation
+**Create in a dir you like the following dirs**
+- path/bin
+- path/bin/bin
+- path/bin/other_src
+- path/data
+- path/other
+
+
+**Create data and move files**
+Move the files in the right dirs: 
+- config.conf -> data/
+- log.dat -> data/
+- .env -> data/
+- *.md -> other/
+- launcher/ -> bin/
+- Lume/ -> bin/
+- DriveMgr_CLI and GUI -> bin/other_src
+
+
+### Step 2: Build the Binary
 
 ##### for C++ CLI
 
@@ -179,6 +218,9 @@ sudo python3 command_creation.py
 ```sh
 make
 ```
+After this move the Binary into the path/bin/bin folder 
+
+
 ##### For the GUI version:
 
 ``` cd ``` into the ```DriveMgr_GUI``` folder, them run or the Rust version (if you have rust compiler):
@@ -190,40 +232,6 @@ cargo build
 ``` cd ``` into the ```DriveMgr_GUI/C++-GTK-GUI``` folder, them run or the Rust version (if you have gtk):
 ```sh
 make
-```
-
-### Step 2: Setup the Application envroment
-
-Here you have 2 ways again, first is when you used the python script, then all nessecary enviroment setups have been done.
-
-If you choosed to compile manualy then you need to apply folowing changes
-
-**Create DriveMgr folder:**
-Create DriveMgr folder in the ```~/.local``` dir
-
-```sh 
-mkdir -p ~/.local/share/DriveMgr
-```
-
-
-**Create bin and other folders:**
-Create the ``` bin ``` dir in DriveMgr
-
-```sh
-mkdir -p ~/.local/share/DriveMgr/bin
-mkdir -p ~/.local/share/DriveMgr/bin/bin
-mkdir -p ~/.local/share/DriveMgr/bin/launcher
-mkdir -p ~/.local/share/DriveMgr/bin/other_src
-```
-
-
-**Create data and move files:**
-Create the ``` data ``` dir in DriveMgr and move reqired file into it
-
-```sh
-mkdir -p ~/.local/share/DriveMgr/data
-touch ~/.local/share/DriveMgr/data/log.dat
-mv [your location where the DriveMgr clone is right now]/Linux-Drive-Manager/config.conf ~/.local/share/DriveMgr/data
 ```
 
 ---
