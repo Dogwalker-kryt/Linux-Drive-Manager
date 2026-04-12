@@ -35,8 +35,8 @@ but to add a safety and orchestration layer on top of them.
 
 ### CLI:
 
-- Experimental: `v0.9.24.46`  
-  _(new -cfg-src and -sd commands)_
+- Experimental: `v0.9.24.57`  
+  _(Variable path system (EnvSys), for variable Dmgr location)_
 
 ### GUI (Not getting Updated anymore):
 
