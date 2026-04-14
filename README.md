@@ -80,6 +80,10 @@ config.conf        - Example config
 
 ```
 
+### Currently wokred on:
+- real tests
+- split up of files in to .cpp and .h 
+
 ---
 
 ## Features
