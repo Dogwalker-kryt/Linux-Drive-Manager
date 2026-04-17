@@ -35,7 +35,7 @@ but to add a safety and orchestration layer on top of them.
 
 ### CLI:
 
-- Experimental: `v0.9.24.57`  
+- Experimental: `v0.9.24.60`  
   _(Variable path system (EnvSys), for variable Dmgr location)_
 
 ### GUI (Not getting Updated anymore):
