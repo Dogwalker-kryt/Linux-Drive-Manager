@@ -1,6 +1,6 @@
 #include "../include/DmgrLib.h"
 
-
+// ========= Terminos IO =========
 
 void TerminosIO::initiateTerminosInput() {
     tcgetattr(STDIN_FILENO, &oldt);
@@ -22,7 +22,7 @@ void TerminosIO::enableTerminosInput_diableAltTerminal() {
 }
 
 
-// Logger
+// ========= Logger =========
 
 enum class LogType {
     ERROR,
@@ -32,7 +32,6 @@ enum class LogType {
     DRYRUN,
     EXEC
 };
-
 
 const char* Logger::logMessage(LogType log_type) {
     switch (log_type) {
@@ -126,7 +125,7 @@ void Logger::clearLoggs(const std::string& path) {
 }
 
 
-// helper/validtion/runtime error
+// ========= helper/validtion/runtime error =========
 
 std::string filePathHandler(const std::string &file_path) {
     const char* sudo_user = getenv("SUDO_USER");
@@ -159,97 +158,200 @@ void ldm_runtime_error(const std::string& error_message) {
     throw std::runtime_error("[ERROR] " + error_message);
 }
 
+
+// ========= input validation =========
+
+std::string readLine() {
+    std::string s;
+
+    if (!std::getline(std::cin, s)) {
+        
+        ERR(ErrorCode::IOError, "std::getline failed");
+        LOG_ERROR("std::getline() failed", g_no_log);
+        return "";
+    }
+
+    return s;
+}
+
 namespace InputValidation {
 
     std::optional<int> getInt(const std::vector<int> &valid_ints) {
-        std::string s_input;
-        std::getline(std::cin, s_input);
+        std::string s_input = readLine();
+        
+        // Case 1: getline failed → s_input == "" AND stream is bad
+        if (!std::cin.good()) {
 
-        if (s_input.empty()) {
-            ERR(ErrorCode::InvalidInput, "int Input expected");
-            LOG_ERROR("invalid input; input is empty", g_no_log);
+            ERR(ErrorCode::IOError, "Failed to read input");
             return std::nullopt;
+
+        }
+
+        // Case 2: user entered empty line → s_input == "" but stream is fine
+        if (s_input.empty()) {
+
+            ERR(ErrorCode::InvalidInput, "Input cannot be empty");
+            LOG_ERROR("Input is empty", g_no_log);
+            return std::nullopt;
+
         }
 
         try {
-            int i_input = std::stoi(s_input);
 
-            if (!valid_ints.empty() &&
-                std::find(valid_ints.begin(), valid_ints.end(), i_input) == valid_ints.end()) {
+            size_t idx = 0;
+            int i_input = std::stoi(s_input, &idx);
+
+            if (idx != s_input.size()) {
+
+                ERR(ErrorCode::InvalidInput, "no characters can be used as input");
+                LOG_ERROR("no characters can be used as input", g_no_log);
+                return std::nullopt;
+
+            }
+
+            if (!valid_ints.empty() && std::find(valid_ints.begin(), valid_ints.end(), i_input) == valid_ints.end()) {
 
                 ERR(ErrorCode::InvalidInput, "Input not in allowed integer list");
                 LOG_ERROR("Input not in allowed integer list -> validateIntInput", g_no_log);
                 return std::nullopt;
+
             }
 
             return i_input;
 
         } catch (const std::exception&) {
+
             ERR(ErrorCode::InvalidInput, "Conversion from string to int failed");
             LOG_ERROR("Conversion from string to int failed -> validateIntInput", g_no_log);
             return std::nullopt;
+
         }
     }
 
-
     std::optional<int> getInt(int min_value, int max_value) {
-        std::vector<int> valid_ints;
-        valid_ints.reserve(max_value - min_value + 1);
+        auto val = getInt({});
+        if (!val) return std::nullopt;
 
-        for (int i = min_value; i <= max_value; ++i)
-            valid_ints.push_back(i);
+        if (*val < min_value || *val > max_value) {
 
-        return getInt(valid_ints);
+            ERR(ErrorCode::InvalidInput, "Input outside allowed range");
+            LOG_ERROR("Input outside allowed range", g_no_log);
+            return std::nullopt;
+
+        }
+
+        return val;
     }
 
+    std::optional<unsigned int> getUint() {
+        std::string s_input = readLine();
+        
+        // Case 1: getline failed → s_input == "" AND stream is bad
+        if (!std::cin.good()) {
 
-    std::optional<uint> getUint() {
-        std::string s_input;
-        std::getline(std::cin, s_input);
-
-        if (s_input.empty()) {
-            ERR(ErrorCode::InvalidInput, "uint input expected");
-            LOG_ERROR("invalid input; input is empty", g_no_log);
+            ERR(ErrorCode::IOError, "Failed to read input");
             return std::nullopt;
+
+        }
+
+        // Case 2: user entered empty line → s_input == "" but stream is fine
+        if (s_input.empty()) {
+
+            ERR(ErrorCode::InvalidInput, "Input cannot be empty");
+            LOG_ERROR("Input is empty", g_no_log);
+            return std::nullopt;
+
         }
 
         try {
-            uint uint_input = std::stoull(s_input);
-            return uint_input;
+
+            size_t idx = 0;
+            unsigned long long tmp = std::stoull(s_input, &idx);
+
+            if (idx != s_input.size()) {
+
+                ERR(ErrorCode::InvalidInput, "only 1 character can be used as input");
+                LOG_ERROR("no characters can be used as input", g_no_log);
+                return std::nullopt;
+
+            }
+
+            if (tmp > std::numeric_limits<unsigned int>::max()) {
+                ERR(ErrorCode::OutOfRange, "Number too large for unsigned int");
+                LOG_ERROR("Number too large for unsigned int", g_no_log);
+                return std::nullopt;
+            }
+
+            return static_cast<unsigned int>(tmp);
 
         } catch (const std::exception&) {
+
             ERR(ErrorCode::InvalidInput, "Conversion from string to uint failed");
             LOG_ERROR("Conversion from string to uint failed", g_no_log);
             return std::nullopt;
+
         }
     }
 
-
     std::optional<char> getChar(const std::vector<char> &valid_chars) {
-        std::string s_input;
-        std::getline(std::cin, s_input);
+        std::string s_input = readLine();
 
-        if (s_input.empty() || s_input.size() != 1) {
-            ERR(ErrorCode::InvalidInput, "Input cannot be empty or more than 1 char");
-            LOG_ERROR("Invalid input; input is empty or more than 1 char -> validateCharInput", g_no_log);
+        if (!std::cin.good()) {
+
+            ERR(ErrorCode::IOError, "Failed to read input");
+            LOG_ERROR("std::getline() failed", g_no_log);
             return std::nullopt;
+
         }
 
-        char c_input = s_input[0];
+        if (s_input.empty()) {
 
-        if (!valid_chars.empty() &&
-            std::find(valid_chars.begin(), valid_chars.end(), c_input) == valid_chars.end()) {
+            ERR(ErrorCode::InvalidInput, "Input cannot be empty");
+            LOG_ERROR("Input is empty", g_no_log);
+            return std::nullopt;
+
+        }
+
+        auto start = s_input.find_first_not_of(" \t\n\r");
+        auto end   = s_input.find_last_not_of(" \t\n\r");
+
+        if (start == std::string::npos) {
+
+            ERR(ErrorCode::InvalidInput, "Input cannot be empty or whitespace");
+            LOG_ERROR("Input is empty or whitespace", g_no_log);
+            return std::nullopt;
+
+        }
+
+        std::string trimmed = s_input.substr(start, end - start + 1);
+
+        if (trimmed.size() != 1) {
+
+            ERR(ErrorCode::InvalidInput, "Input must be exactly one character");
+            LOG_ERROR("Input has more than one non-whitespace character", g_no_log);
+            return std::nullopt;
+
+        }
+
+        char c_input = trimmed[0];
+
+        // Validate allowed characters
+        if (!valid_chars.empty() && std::find(valid_chars.begin(), valid_chars.end(), c_input) == valid_chars.end()) {
 
             ERR(ErrorCode::InvalidInput, "Character not allowed");
             LOG_ERROR("Char not in allowed list", g_no_log);
             return std::nullopt;
+
         }
 
         return c_input;
     }
 
+
 }
 
+
+// ==================== Side/Helper Functions ====================
 
 std::string confirmationKeyGenerator() {
     std::array<char, 62> chars_for_key = {
@@ -292,7 +394,6 @@ bool askForConfirmation(const std::string &prompt) {
 
     return true;
 }
-
 
 std::string removeFirstLines(const std::string& text, int n) {
     std::string out = text;
