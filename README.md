@@ -35,8 +35,8 @@ but to add a safety and orchestration layer on top of them.
 
 ### CLI:
 
-- Experimental: `v0.9.24.60`  
-  _(Variable path system (EnvSys), for variable Dmgr location)_
+- Experimental: `v0.9.24.61`  
+  _(refactored log so you dont need to write g_no_log as param; split .h into .h and .cpp; refactored InputValidtion)_
 
 ### GUI (Not getting Updated anymore):
 
