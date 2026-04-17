@@ -19,11 +19,9 @@
 #ifndef LDM_UPDATER
 #define LDM_UPDATER
 
-#include <iostream>
-#include <sstream>
-#include <string>
 #include "DmgrLib.h"
 #include "exec_cmd.h"
+
 
 class LDMUpdater {
 private:
@@ -41,108 +39,27 @@ private:
      * @brief Parses version string (e.g., "v0.9.17.15") into version components
      * @param v version string from #define VERSION
      */
-    static Version_int parseVersionVals(const std::string &v) {
-        Version_int ver;
-        std::string ver_str = v;
-
-        if (!ver_str.empty() && (ver_str[0] == 'v' || ver_str[0] == 'V')) {
-            ver_str.erase(0, 1);
-        }
-
-        size_t dash_pos = ver_str.find('-');
-        if (dash_pos != std::string::npos) {
-            ver_str.resize(dash_pos);
-        }
-
-        std::stringstream ss(ver_str);
-        char dot;
-        ss >> ver.major_realease >> dot
-            >> ver.major >> dot 
-            >> ver.minor >> dot 
-            >> ver.patch;
-        return ver;
-    }
+    static Version_int parseVersionVals(const std::string &v);
 
     /**
      * @brief Compares the local version with the latest released one on github
      * @param version_local the local version in DriveMgr_experi.cpp
      * @param version_github the remote version on github
      */
-    static int comparing_versions(const Version_int &version_local, const Version_int &version_github) {
-        if (version_local.major_realease != version_github.major_realease) {
-            return (version_local.major_realease < version_github.major_realease) ? -1 : 1;
-        }
-        if (version_local.major != version_github.major) {
-            return (version_local.major < version_github.major) ? -1 : 1;
-        }
-        if (version_local.minor != version_github.minor) {
-            return (version_local.minor < version_github.minor) ? -1 : 1;
-        }
-        if (version_local.patch != version_github.patch) {
-            return (version_local.patch < version_github.patch) ? -1 : 1;
-        }
-        return 0;
-    }
+    static int comparing_versions(const Version_int &version_local, const Version_int &version_github);
 
     /**
      * @brief Fetches the latest release version from GitHub API
      * @return version string (e.g., "v0.9.17.15") or empty string on error
      */
-    static std::string getVersionGithub() {
-        std::string cmd = "curl -s https://api.github.com/repos/Dogwalker-kryt/Linux-Drive-Manager/releases/latest";
-        auto res = EXEC_QUIET_SUDO(cmd);
-        std::string json = res.output;
-
-        size_t pos = json.find("\"tag_name\"");
-        if (pos == std::string::npos) {
-            return "";
-        }
-
-        pos = json.find(":", pos);
-        pos = json.find("\"", pos) + 1;
-        size_t end = json.find("\"", pos);
-        return json.substr(pos, end - pos);
-    }
+    static std::string getVersionGithub();
 
 public:
     /**
      * @brief Main updater function - checks GitHub for new releases
      * @param LOCAL_VERSION the current version from #define VERSION
      */
-    static void updaterMain(const std::string &LOCAL_VERSION) {
-        std::cout << "Initializing Updater...\n";
-        std::cout << YELLOW << "\n[INFO] " << RESET << "Make sure you are connected to the internet\n";
-
-        std::string dev_suffix;
-
-        if (LOCAL_VERSION.find("dev") != std::string::npos || LOCAL_VERSION.find("dev") != std::string::npos) {
-            dev_suffix = YELLOW + "\n[INFO]" + RESET + "Local version contains " + BOLD + "'dev'." + RESET + " Local version is a developer/custom/other release build\n";    
-        }
-
-
-        Version_int local_version = parseVersionVals(LOCAL_VERSION);
-        std::string remote_version_str = getVersionGithub();
-        Version_int remote_version = parseVersionVals(remote_version_str);
-
-        int cmp = comparing_versions(local_version, remote_version);
-
-        if (cmp < 0) {
-            std::cout << YELLOW << "\n[UPDATE]" << RESET << "New version available: " << remote_version_str << "\n";
-        } else if (cmp > 0) {
-            std::cout << YELLOW << "\n[INFO]" << RESET << "Local version is newer (probably dev build or custom build)\n";
-
-            if (!dev_suffix.empty()) {
-                std::cout << dev_suffix;
-            }
-
-        } else {
-            std::cout << GREEN << "\n[INFO]" << RESET << "You are up to date.\n";
-
-            if (!dev_suffix.empty()) {
-                std::cout << dev_suffix;
-            }
-        }
-    }
+    static void updaterMain(const std::string &LOCAL_VERSION);
 };
 
 #endif

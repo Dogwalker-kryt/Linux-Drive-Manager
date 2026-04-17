@@ -48,7 +48,7 @@ public:
         if (g_dry_run || mode == ExecMode::DRY_RUN) {
 
             std::cout << YELLOW << "[DRY-RUN] Would execute: " << final_cmd << RESET << "\n";
-            LOG_DRYRUN(final_cmd, g_no_log);
+            LOG_DRYRUN(final_cmd);
 
             result.success = true;
             result.exit_code = 0;
@@ -77,7 +77,7 @@ public:
         // Logging / console behavior
         if (mode == ExecMode::QUIET) {
 
-            LOG_EXEC(cmd + " -> " + (result.success ? "OK" : "FAILED"), g_no_log);
+            LOG_EXEC(cmd + " -> " + (result.success ? "OK" : "FAILED"));
 
         } else {
 

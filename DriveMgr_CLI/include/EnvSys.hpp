@@ -10,6 +10,7 @@
 class EnvSys {
 private:
     #define LEAVETERMINALSCREEN "\033[?1049l"
+    #define PATH_MAX 4096
 
     static inline std::string getExecutablePath() {
         char buf[PATH_MAX];

@@ -19,16 +19,7 @@
 // command_exec.h
 #pragma once
 
-#include <string>
-#include <vector>
-#include <unistd.h>
-#include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <cstring>
-#include <cerrno>
-#include <sstream>
 
 struct ExecResult {
     int exit_code{ -1 };

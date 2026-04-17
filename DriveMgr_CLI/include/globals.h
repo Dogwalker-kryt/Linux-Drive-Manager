@@ -2,7 +2,7 @@
 
 #include <string>
 #include <vector>
-#include "EnvSys.hpp"
+#include <filesystem>
 
 // === color related globals ===
 
@@ -39,14 +39,19 @@ extern std::string g_config_src_path;
 
 // === program state globals ===
 
-/**
- * @brief Global variable to indicate if the program is running in dry-run mode, where no actual commands are executed and only logged
- */
+/** @brief Global variable to indicate if the program is running in dry-run mode, where no actual commands are executed and only logged */
 extern bool g_dry_run;
+
+/** @brief Global varibale to enable/disable logging */
+extern bool g_no_log;
+
+/** @brief Global varibale to enable/disable debug messages */
+extern bool g_debug;
 
 
 // === paths ===
-auto dmgr_root = EnvSys::appRoot();
-auto log_path = dmgr_root / "data" / "log.dat";
-auto config_path = dmgr_root / "data" / "config.conf";
-auto lume_path = dmgr_root / "bin" / "Lume" / "Lume";
+
+extern std::filesystem::path dmgr_root;
+extern std::filesystem::path log_path;
+extern std::filesystem::path config_path;
+extern std::filesystem::path lume_path;

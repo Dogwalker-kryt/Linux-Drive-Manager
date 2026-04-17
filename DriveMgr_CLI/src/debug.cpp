@@ -18,6 +18,7 @@
 
 #include "../include/debug.h"
 #include <iostream>
+#include <map>
 
 int debug_msg(const std::string& message, bool is_active) {
     if (!is_active) {

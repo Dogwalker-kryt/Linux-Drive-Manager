@@ -40,11 +40,8 @@
 
 // Project headers
 #include "debug.h"
-#include "command_exec.h"
 #include "globals.h"
 #include "EnvSys.hpp"
-
-
 
 
 // === altTerminal Screen ===
@@ -102,35 +99,18 @@ class TerminosIO {
         struct termios oldt, newt;
 
     public:
-        void initiateTerminosInput() {
-            tcgetattr(STDIN_FILENO, &oldt);
-            newt = oldt;
-            newt.c_lflag &= ~(ICANON | ECHO);
-        }
+        void initiateTerminosInput();
 
-        void enableRawMode() {
-            tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-        }
+        void enableRawMode();
 
-        void restoreTerminal() {
-            tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-        }
+        void restoreTerminal();
 
-        void enableTerminosInput_diableAltTerminal() {
-            initiateTerminosInput();
-            std::cout << LEAVETERMINALSCREEN;
-        }
+        void enableTerminosInput_diableAltTerminal();
 };
 
 inline TerminosIO term;
 
 // ==================== Logging ====================
-
-/** 
- * @brief On/Off switch var for loggin
- * @param g_no_log will turn to true if you start the programm with the --no-log flag
-*/
-extern bool g_no_log;
 
 /**
  * @brief Logger class for DriveMgr
@@ -155,17 +135,7 @@ private:
      * @brief map the log types from LogTypes to string
      * Used internally to prepend log messages with a consistent log level tag (e.g., [ERROR], [INFO]) when writing to the log file.
      */
-    static inline const char* logMessage(LogType log_type) {
-        switch (log_type) {
-            case LogType::ERROR: return "[ERROR] ";
-            case LogType::WARNING: return "[WARNING] ";
-            case LogType::INFO: return "[INFO] ";
-            case LogType::SUCCESS: return "[SUCCESS] ";
-            case LogType::DRYRUN: return "[DRY-RUN] ";
-            case LogType::EXEC: return "[EXEC] ";
-            default: return "[UNKNOWN] ";
-        }
-    }
+    static inline const char* logMessage(LogType log_type);
 
     /**
      * @brief Log an operation with timestamp to the DriveMgr log file
@@ -174,158 +144,116 @@ private:
      * Logs to ~/.local/share/DriveMgr/data/log.dat with format: [DD-MM-YYYY HH:MM] event: <operation>
      * Creates log directory if it doesn't exist. Respects SUDO_USER for proper file ownership.
      */
-    static void log(LogType type, const std::string& operation, const bool g_no_log, const char* func) {
-        if (g_no_log == false) {
-
-            auto now = std::chrono::system_clock::now();
-            std::time_t currentTime = std::chrono::system_clock::to_time_t(now);
-            char timeStr[100];
-
-            std::strftime(timeStr, sizeof(timeStr), "%d-%m-%Y %H:%M", std::localtime(&currentTime));
-
-            std::string log_msg = "[" + std::string(timeStr) + "] event: " + logMessage(type) + operation + " (location: " + std::string(func) + ")";
-
-            std::ofstream log_file(log_path, std::ios::app);
-
-            if (log_file) {
-
-                log_file << log_msg << std::endl;
-
-            } else {
-                std::cerr << RED << "[Logger Error] Unable to open log file: " << log_path << " Reason: " << strerror(errno) << RESET <<"\n";
-            }
-
-        } else {
-            return;
-        }
-    }
+    static void log(LogType type, const std::string& operation, const char* func);
 public:
 
     /**
      * @brief Logs and Error
      * @param msg the Message to be logged in the log file
-     * @param g_no_log use the global g_no_log variable for this
      */
-    static void error(const std::string &msg, bool g_no_log, const char* func) {
-        log(LogType::ERROR, msg, g_no_log, func);
-    }
+    static void error(const std::string &msg, const char* func);
 
     /**
      * @brief Logs an Warning
      * @param msg the Message to be logged in the log file
-     * @param g_no_log use the global g_no_log variable for this
      */
-    static void warning(const std::string &msg, bool g_no_log, const char* func) {
-        log(LogType::WARNING, msg, g_no_log, func);
-    }
+    static void warning(const std::string &msg, const char* func);
 
     /**
      * @brief Logs an  Info
      * @param msg the Message to be logged in the log file
-     * @param g_no_log use the global g_no_log variable for this
      */
-    static void info(const std::string &msg, bool g_no_log, const char* func) {
-        log(LogType::INFO, msg, g_no_log, func);
-    }
+    static void info(const std::string &msg, const char* func);
 
     /**
      * @brief Logs an Successs
      * @param msg the Message to be logged in the log file
-     * @param g_no_log use the global g_no_log variable for this
      */    
-    static void success(const std::string &msg, bool g_no_log, const char* func) {
-        log(LogType::SUCCESS, msg, g_no_log, func);
-    }
+    static void success(const std::string &msg, const char* func);
 
     /**
      * @brief Logs an dry run
      * @param msg the Message to be logged in the log file
-     * @param g_no_log use the global g_no_log variable for this
      */ 
-    static void dry_run(const std::string &msg, bool g_no_log, const char* func) {
-        log(LogType::DRYRUN, msg, g_no_log, func);
-    }
+    static void dry_run(const std::string &msg, const char* func);
 
     /**
      * @brief Logs an exec
      * @param msg the Message to be logged in the log file
-     * @param g_no_log use the global g_no_log variable for this
      */ 
-    static void exec(const std::string &msg, bool g_no_log, const char* func) {
-        log(LogType::EXEC, msg, g_no_log, func);
-    }
+    static void exec(const std::string &msg, const char* func);
 
-    static void clearLoggs(const std::string& path) {
-        std::ifstream in(path);
-        if (!in) return;
-
-        std::vector<std::string> keep;
-
-        std::string line;
-
-        while (std::getline(in, line)) {
-
-            if (!line.empty() && line[0] == '/') {
-
-                keep.push_back(line);
-
-            }
-
-        }
-        
-        in.close();
-
-        std::ofstream out(path, std::ofstream::trunc);
-
-        for (const auto& l : keep) {
-
-            out << l << "\n";
-
-        }
-    }
+    static void clearLoggs(const std::string& path);
 };
 
 /**
  * @brief Loggs an error
  * @param msg Message to be logged
- * @param g_no_log use g_no_log for this
  */
-#define LOG_ERROR(msg, g_no_log)    Logger::error(msg, g_no_log, __func__)
+#define LOG_ERROR(msg)    Logger::error(msg, __func__)
 
 /**
  * @brief Loggs an warning
  * @param msg Message to be logged
- * @param g_no_log use g_no_log for this
  */
-#define LOG_WARNING(msg, g_no_log)  Logger::warning(msg, g_no_log, __func__)
+#define LOG_WARNING(msg)  Logger::warning(msg, __func__)
 
 /**
  * @brief Loggs an Info
  * @param msg Message to be logged
- * @param g_no_log use g_no_log for this
  */
-#define LOG_INFO(msg, g_no_log)     Logger::info(msg, g_no_log, __func__)
+#define LOG_INFO(msg)     Logger::info(msg, __func__)
 
 /**
  * @brief Loggs an Success
  * @param msg Message to be logged
- * @param g_no_log use g_no_log for this
  */
-#define LOG_SUCCESS(msg, g_no_log)  Logger::success(msg, g_no_log, __func__)
+#define LOG_SUCCESS(msg)  Logger::success(msg, __func__)
 
 /**
  * @brief Loggs an Dry run
  * @param msg Message to be logged
- * @param g_no_log use g_no_log for this
  */
-#define LOG_DRYRUN(msg, g_no_log)   Logger::dry_run(msg, g_no_log, __func__)
+#define LOG_DRYRUN(msg)   Logger::dry_run(msg, __func__)
 
 /**
  * @brief Loggs an cmd execution
  * @param msg Message to be logged
- * @param g_no_log use g_no_log for this
  */
-#define LOG_EXEC(msg, g_no_log)     Logger::exec(msg, g_no_log, __func__)
+#define LOG_EXEC(msg)     Logger::exec(msg, __func__)
+
+
+// ============== DriveMetadata Struct Architecture ==============
+class DriveMetadataStruct {
+public:    
+    struct DriveMetadata {
+        std::optional<std::string> name;
+        std::optional<std::string> size;
+        std::optional<std::string> model;
+        std::optional<std::string> serial;
+        std::optional<std::string> type;
+        std::optional<std::string> mountpoint;
+        std::optional<std::string> vendor;
+        std::optional<std::string> fstype;
+        std::optional<std::string> uuid;
+    };
+
+    /**
+     * @brief Clears all metadata fields of a DriveMetadata struct by resetting the optional values to std::nullopt.
+     */
+    static void clearMetadata(DriveMetadata& metadata) {
+        metadata.name = std::nullopt;
+        metadata.size = std::nullopt;
+        metadata.model = std::nullopt;
+        metadata.serial = std::nullopt;
+        metadata.type = std::nullopt;
+        metadata.mountpoint = std::nullopt;
+        metadata.vendor = std::nullopt;
+        metadata.fstype = std::nullopt;
+        metadata.uuid = std::nullopt;
+    }
+};
+
 
 // ==================== Runtime error and TUI components ====================
 
@@ -340,11 +268,7 @@ extern struct termios oldt, newt;
  * @param error_message The error message to include in the std::runtime_error exception.
  * @note This function should be used whenever a runtime error needs to be thrown, as it ensures that the terminal settings are properly reset before throwing the exception.
  */
-inline void ldm_runtime_error(const std::string& error_message) {
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    std::cout << "\033[?1049l";
-    throw std::runtime_error("[ERROR] " + error_message);
-}
+void ldm_runtime_error(const std::string& error_message);
 
 
 // ==================== Signatures for Recovery ====================
@@ -387,6 +311,12 @@ static std::map<std::string, file_signature> signatures ={
 
 // ========= input validation =========
 
+/**
+ * @brief takes input with std::getline and checks if std::getline failed
+ * @return entered string (if getline failed returns "")
+ */
+std::string readLine();
+
 namespace InputValidation {
 
     /**
@@ -403,40 +333,7 @@ namespace InputValidation {
      *         Contains the parsed integer on success, or std::nullopt if the input
      *         is empty, non-numeric, or out of range.
      */
-    inline std::optional<int> getInt(const std::vector<int> &valid_ints = {}) {
-        std::string s_input;
-        std::getline(std::cin, s_input);
-
-        if (s_input.empty()) {
-
-            ERR(ErrorCode::InvalidInput, "int Input expected");
-            LOG_ERROR("invalid input; input is empty", g_no_log);
-            return std::nullopt;
-
-        }
-
-        try {
-
-            int i_input = std::stoi(s_input);
-
-            if (!valid_ints.empty() && std::find(valid_ints.begin(), valid_ints.end(), i_input) == valid_ints.end()) {
-
-                ERR(ErrorCode::InvalidInput, "Input not in allowed integer list");
-                LOG_ERROR("Input not in allowed integer list -> validateIntInput", g_no_log);
-                return std::nullopt;
-
-            }
-
-            return i_input;
-
-        } catch (const std::exception& e) {
-
-            ERR(ErrorCode::InvalidInput, "Conversion from string to int failed");
-            LOG_ERROR("Conversion from string to int failed -> validateIntInput", g_no_log);
-            return std::nullopt;
-
-        }
-    }
+    std::optional<int> getInt(const std::vector<int> &valid_ints = {});
 
     /**
      * @ingroup InputValidation
@@ -454,16 +351,9 @@ namespace InputValidation {
      *         - Contains the parsed integer if it lies within the range.
      *         - std::nullopt otherwise.
      */
-    inline std::optional<int> getInt(int min_value, int max_value) {
-        std::vector<int> valid_ints;
-        valid_ints.reserve(max_value - min_value + 1);
+    std::optional<int> getInt(int min_value, int max_value);
 
-        for (int i = min_value; i <= max_value; ++i)
-            valid_ints.push_back(i);
-
-        return getInt(valid_ints);
-    }
-
+    std::optional<uint> getUint();
 
     /**
      * @brief Validates user input as a single character.
@@ -480,115 +370,32 @@ namespace InputValidation {
      *         - std::nullopt if the input is empty, longer than one character,
      *           or not part of the allowed character list.
      */
-    inline std::optional<char> getChar(const std::vector<char> &valid_chars = {}) {
-        std::string s_input;
-        std::getline(std::cin, s_input);
+    std::optional<char> getChar(const std::vector<char> &valid_chars = {});
 
-        if (s_input.empty() || s_input.size() != 1) {
 
-            ERR(ErrorCode::InvalidInput, "Input cannot be emtpy or more then 1 char");
-            LOG_ERROR("Invalid input; input is empty or more then 1 cahr -> validateCharInput", g_no_log);
-            return std::nullopt;
-
-        }
-
-        char c_input = s_input[0];
-
-        if (!valid_chars.empty() && std::find(valid_chars.begin(), valid_chars.end(), c_input) == valid_chars.end()) {
-
-            ERR(ErrorCode::InvalidInput, "Character not allowed");
-            LOG_ERROR("Char not in allowed list", g_no_log);
-            return std::nullopt;
-
-        }
-
-        return c_input;
-    }
 }
-
 
 // ==================== Side/Helper Functions ====================
 
-
-/**
- * @brief Generates a random 10-character confirmation key consisting of uppercase letters, lowercase letters, and digits.
- * @return A randomly generated confirmation key as a string.
- */
-inline std::string confirmationKeyGenerator() {
-    std::array<char, 62> chars_for_key = {
-        'a','b','c','d','e','f','g','h','i','j',
-        'k','l','m','n','o','p','q','r','s','t',
-        'u','v','w','x','y','z',
-        'A','B','C','D','E','F','G','H','I','J',
-        'K','L','M','N','O','P','Q','R','S','T',
-        'U','V','W','X','Y','Z',
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
-    };
-
-    static thread_local std::mt19937 gen(std::random_device{}());
-
-    std::uniform_int_distribution<> dist(0, chars_for_key.size() - 1);
-
-    std::string generated_key;
-
-    generated_key.reserve(10);
-
-    for (int i = 0; i < 10; i++) {
-        generated_key += chars_for_key[dist(gen)];
-    }
-
-    return generated_key;
-}
-
-/**
- * @brief Prompts the user for a yes/no confirmation with a custom message.
- * @param prompt The message to display to the user when asking for confirmation.
- */
-inline bool askForConfirmation(const std::string &prompt) {
-    std::cout << prompt << "(y/n)\n";
-    char confirm;
-    std::cin >> confirm;
-
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // clear inputbuffer
-
-    if (confirm != 'Y' && confirm != 'y') {
-        std::cout << BOLD << "[INFO] Operation cancelled\n" << RESET;
-        LOG_INFO("Operation cancelled", g_no_color);
-        return false;
-    } 
-
-    return true;
-}
 
 /**
  * @brief Handles file paths by prepending the user's home directory to a given relative path.
  * @param file_path The relative file path to be handled in home dir (e.g., "/.config/myapp/config.dat").
  * @returns the ready to use file path with
  */
-inline std::string filePathHandler(const std::string &file_path) {
-    const char* sudo_user = getenv("SUDO_USER");
-    const char* user_env = getenv("USER");
-    const char* username = sudo_user ? sudo_user : user_env;
+std::string filePathHandler(const std::string &file_path);
 
-    if (!username) {
-        std::cerr << RED << "[ERROR] Could not determine username.\n" << RESET;
-        LOG_ERROR("Could not determine username", g_no_log);
-        return "";
-    }
+/**
+ * @brief Generates a random 10-character confirmation key consisting of uppercase letters, lowercase letters, and digits.
+ * @return A randomly generated confirmation key as a string.
+ */
+std::string confirmationKeyGenerator();
 
-    const struct passwd* pw = getpwnam(username);
-
-    if (!pw) {
-        std::cerr << RED << "[ERROR] Could not get home directory for user: " << username << RESET << "\n";
-        LOG_ERROR("Failed to get home directory for user: " + std::string(username), g_no_log);
-        return "";
-    }
-
-    std::string homeDir = pw->pw_dir;
-    std::string path = homeDir + file_path;
-    
-    return path;
-}
+/**
+ * @brief Prompts the user for a yes/no confirmation with a custom message.
+ * @param prompt The message to display to the user when asking for confirmation.
+ */
+bool askForConfirmation(const std::string &prompt);
 
 /**
  * @brief Removes the first n lines from a given string of text.
@@ -596,61 +403,28 @@ inline std::string filePathHandler(const std::string &file_path) {
  * @param n The number of lines to remove from the beginning of the text (default is 1).
  * @return A new string with the first n lines removed. If the text has fewer than n lines, returns an empty string.
  */
-inline std::string removeFirstLines(const std::string& text, int n = 1) {
-    std::string out = text;
-    for (int i = 0; i < n; i++) {
-        size_t pos = out.find('\n');
-
-        if (pos == std::string::npos)
-            return out; // nothing left to remove
-
-        out.erase(0, pos + 1);
-    }
-    return out;
-}
+std::string removeFirstLines(const std::string& text, int n = 1);
 
 /**
  * @brief This is the End question that is promted when a function failed/finished
  * @param running There is a variable in main that is named 'running', use it for only this
  */
-inline void menuQues(bool& running) {   
-    std::cout << BOLD <<"\nPress '1' for returning to the main menu, '2' to exit:\n" << RESET;
+void menuQues(bool& running);
 
-    auto menuques = InputValidation::getInt({1, 2});
+/**
+ * @brief Checks if the binary is run as root
+ */
+bool isRoot();
 
-    if (!menuques.has_value()) return;
+/**
+ * @brief isRoot() wrapper with error message
+ */
+bool checkRoot();
 
-    if (menuques == 1) {
-
-        running = true;
-
-    } else if (menuques == 2) {
-
-        running = false;
-    }
-}
-
-inline bool isRoot() {
-    return (getuid() == 0);
-}
-
-inline bool checkRoot() {
-    if (!isRoot()) {
-        ERR(ErrorCode::PermissionDenied, "This function requires root privileges. Please run with 'sudo'");
-        LOG_ERROR("Attempted to run without root privileges", g_no_log);
-        return false;
-    }
-    return true;
-}
-
-inline bool checkRootMetadata() {
-    if (!isRoot()) {
-        std::cerr << YELLOW << "[WARNING] Running without root may limit functionality. For full access, please run with 'sudo'.\n" << RESET;
-        LOG_WARNING("Running without root privileges", g_no_log);
-        return false;
-    }
-    return true;
-}
+/**
+ * @brief isRoot() wrapper with error message, specificly for metadata operations
+ */
+bool checkRootMetadata();
 
 /**
  * Helper function to check if a file exists at the given path.

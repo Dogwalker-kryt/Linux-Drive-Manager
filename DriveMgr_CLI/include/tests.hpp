@@ -3,7 +3,6 @@
 #include "DmgrLib.h"
 #include "debug.h"
 #include "exec_cmd.h"
-#include <vector>
 
 // ========== Test Framework ==========
 // v0.9.0 - Simple test harness with result tracking and reporting
@@ -252,20 +251,6 @@ TestResult test_confirmationKeyGenerator() {
     return {"test_confirmationKeyGenerator", true, ""};
 }
 
-TestResult test_filePathHandler() {
-    std::string path = filePathHandler("/.local/share/DriveMgr/data/config.conf");
-
-    if (path.empty())
-
-        return {"test_filePathHandler", false, "filePathHandler returned empty path"};
-
-    if (path.find("config.conf") == std::string::npos)
-
-        return {"test_filePathHandler", false, "Path does not contain expected 'config.conf'"};
-
-    return {"test_filePathHandler", true, ""};
-}
-
 TestResult test_removeFirstLines() {
     std::string input = "line1\nline2\nline3\n";
     std::string expected = "line3\n";
@@ -324,7 +309,6 @@ std::vector<TestResult> run_all_tests_internal() {
     // Utility tests
     std::cout << "\n" << CYAN << "[Utility Tests]" << RESET << "\n";
     results.push_back(test_confirmationKeyGenerator());
-    results.push_back(test_filePathHandler());
     results.push_back(test_removeFirstLines());
     results.push_back(test_fileExists());
 
