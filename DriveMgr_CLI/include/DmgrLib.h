@@ -329,6 +329,12 @@ static std::map<std::string, file_signature> signatures ={
 
 // ========= input validation =========
 
+/**
+ * @brief takes input with std::getline and checks if std::getline failed
+ * @return entered string (if getline failed returns "")
+ */
+std::string readLine();
+
 namespace InputValidation {
 
     /**
