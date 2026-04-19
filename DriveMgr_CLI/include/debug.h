@@ -20,8 +20,9 @@
 #define DEBUG_H
 
 #include <iostream>
+#include "globals.h"
 
-extern bool g_no_color;
+//extern bool g_no_color;
 
 namespace Color {
     inline std::string reset_err()   { return g_no_color ? "" : "\033[0m"; }

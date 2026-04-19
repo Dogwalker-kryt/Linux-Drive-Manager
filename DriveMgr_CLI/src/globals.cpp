@@ -1,5 +1,4 @@
 #include "../include/globals.h"
-#include "EnvSys.hpp"
 
 // === color related globals ===
 

@@ -42,18 +42,8 @@
 #include "debug.h"
 #include "globals.h"
 #include "EnvSys.hpp"
-
-
-// === altTerminal Screen ===
-/**
- * @brief Enters into a Alternate Terminal Screen
- */
-#define NEWTERMINALSCREEN "\033[?1049h"
-
-/**
- * @brief Leaves the Alternate Terminal Screen
- */
-#define LEAVETERMINALSCREEN "\033[?1049l"
+#include "TermiosIO.h"
+#include "StringUtils.hpp"
 
 
 // ==================== Color ====================
@@ -93,20 +83,7 @@ const std::unordered_map<std::string, std::string> available_colores {
 };
 
 
-// ==================== TerminalAltScreen ====================
-class TerminosIO {
-    private:
-        struct termios oldt, newt;
-
-    public:
-        void initiateTerminosInput();
-
-        void enableRawMode();
-
-        void restoreTerminal();
-
-        void enableTerminosInput_diableAltTerminal();
-};
+// ==================== Terminos ====================
 
 inline TerminosIO term;
 
@@ -260,16 +237,7 @@ public:
 /**
  * @brief VERY IMPORTANT FOR TUI TO FUNCTION (DONT DELETE)
  */
-extern struct termios oldt, newt;
-
-/**
- * @brief A helper function to throw a std::runtime_error with a given error message.
- *        This function also resets the terminal settings to ensure that the terminal is in a consistent state before throwing the error.
- * @param error_message The error message to include in the std::runtime_error exception.
- * @note This function should be used whenever a runtime error needs to be thrown, as it ensures that the terminal settings are properly reset before throwing the exception.
- */
-void ldm_runtime_error(const std::string& error_message);
-
+// extern struct termios oldt, newt;
 
 // ==================== Signatures for Recovery ====================
 
@@ -396,14 +364,6 @@ std::string confirmationKeyGenerator();
  * @param prompt The message to display to the user when asking for confirmation.
  */
 bool askForConfirmation(const std::string &prompt);
-
-/**
- * @brief Removes the first n lines from a given string of text.
- * @param text The input string from which to remove lines.
- * @param n The number of lines to remove from the beginning of the text (default is 1).
- * @return A new string with the first n lines removed. If the text has fewer than n lines, returns an empty string.
- */
-std::string removeFirstLines(const std::string& text, int n = 1);
 
 /**
  * @brief This is the End question that is promted when a function failed/finished

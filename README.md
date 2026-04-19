@@ -35,8 +35,8 @@ but to add a safety and orchestration layer on top of them.
 
 ### CLI:
 
-- Experimental: `v0.9.24.61`  
-  _(refactored log so you dont need to write g_no_log as param; split .h into .h and .cpp; refactored InputValidtion)_
+- Experimental: `v0.9.25.63`  
+  _(New StrUtils and applyed StrUtils)_
 
 ### GUI (Not getting Updated anymore):
 
@@ -281,6 +281,67 @@ When started, you'll see a menu, for example:
 
 Navigate by using the Arrow Key's (in main menu only) to the desired action. The tool will prompt you for additional information (drive number, confirm, etc).  
 For dangerous actions, an extra key (e.g., generated security key) is required as a safety confirmation.
+
+---
+
+## Tests
+
+- This is the documentation of how to use the tests. 
+- the tests are only realy for developers there, so if you dont change the code, you wont need test 
+
+
+### Making your own tests, or modefying the current
+
+When developing a new function you write the function like this:
+```cpp
+TestResult test_YOUR_TEST() {
+	/* test code depends on the test */
+
+	if (/* if test fail */) {
+		return {"test_YOUR_TEST", false, "Describtion of what failed"} 
+	}
+	// if it succeeds:
+	return {"test_YOUR_TEST", true, ""} 
+}
+```
+- ```TestResult``` is the struct used to store the result of how many tests failed/succeded.
+- To return proplerly do: ``` return {"test_YOUR_TEST", bool, "if fails, description"} ```.
+- when returning ```true```, the test is marked as succeeded
+- when returning ```false```, the test is marked as failed
+
+
+### How to Read the results
+```cpp
+[CmdExec Tests]
+
+[DRY-RUN] Would execute: touch /tmp/test_drivemgr_dryrun_test_file_12345
+
+
+[Input Validation Tests]
+[ERROR] Invalid input (src/DmgrLib.cpp:186, getInt) - Input not in allowed integer list
+[ERROR] Invalid input (src/DmgrLib.cpp:196, getInt) - Conversion from string to int failed
+[ERROR] Invalid input (src/DmgrLib.cpp:313, getChar) - Character not allowed
+[ERROR] Invalid input (src/DmgrLib.cpp:302, getChar) - Input must be exactly one character
+
+[Utility Tests]
+
+======== Test Summary ========
+[PASSED] 21
+[FAILED] 1
+
+[Failed Tests Details]
+ ✗ test_cmdexec_stderr
+   Message: stderr not captured correctly
+===============================
+
+
+Press '1' for returning to the main menu, '2' to exit:
+```
+
+When reading the results, it is important to only read the test summary and not the output.
+The output before test summary is error messages from succede tests and junk. for example getInt/Char, if the input is off its limits, throws an error to the terminal -> this is expected!
+
+**So to cause not any confusion, ignore the output before test summary**
 
 ---
 

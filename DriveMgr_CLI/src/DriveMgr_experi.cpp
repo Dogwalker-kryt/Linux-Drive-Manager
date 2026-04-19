@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.24.61_dev
+// v0.9.25.63
 
 // C++ libraries
 #include <regex>
@@ -35,15 +35,15 @@
 #include "../include/tests.hpp"
 #include "../include/MenuIO.hpp"
 #include "../include/globals.h"
+#include "../include/StringUtils.hpp"
+#include "../include/dmgr_runtime_error.hpp"
+#include "../include/TermiosIO.h"
 
 
-// ==================== global variables and definitions ====================
+// ==================== definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.24.61_dev")
-
-// === globals ===
-struct termios oldt, newt;
+#define VERSION std::string("v0.9.25.63")
 
 // ========== Partition Management ========== 
 
@@ -53,9 +53,9 @@ class PartitionsUtils {
         static bool resizePartition(const std::string& device, uint64_t newSizeMB) {
             try {
 
-                std::string cmd = "parted --script " + device + " resizepart 1 " + std::to_string(newSizeMB) + "MB";
+                const std::string cmd = "parted --script " + device + " resizepart 1 " + std::to_string(newSizeMB) + "MB";
                                  
-                auto res = EXEC(cmd);
+                const auto res = EXEC(cmd);
                 return res.success;
 
             } catch (const std::exception&) {
@@ -71,9 +71,9 @@ class PartitionsUtils {
         static bool movePartition(const std::string& device, int partNum, uint64_t startSectorMB) {
             try {
 
-                std::string cmd = "parted --script " + device + " move " + std::to_string(partNum) + " " + std::to_string(startSectorMB) + "MB";
+                const std::string cmd = "parted --script " + device + " move " + std::to_string(partNum) + " " + std::to_string(startSectorMB) + "MB";
                                  
-                auto res = EXEC_SUDO(cmd);
+                const auto res = EXEC_SUDO(cmd);
                 return res.success;
 
             } catch (const std::exception&) {
@@ -89,13 +89,13 @@ class PartitionsUtils {
         static bool changePartitionType(const std::string& device, int partNum, const std::string& newType) {
             try {
 
-                std::string backupCmd = "sfdisk -d " + device + " > " + device + "_backup.sf";
+                const std::string backupCmd = "sfdisk -d " + device + " > " + device + "_backup.sf";
                 EXEC_QUIET(backupCmd);
 
-                std::string cmd = "echo 'type=" + newType + "' | sfdisk --part-type " + device + " " + std::to_string(partNum);
+                const std::string cmd = "echo 'type=" + newType + "' | sfdisk --part-type " + device + " " + std::to_string(partNum);
                                  
-                auto res = EXEC(cmd); 
-                std::string output = res.output;
+                const auto res = EXEC(cmd); 
+                const std::string output = res.output;
                 return output.find("error") == std::string::npos;
 
             } catch (const std::exception&) {
@@ -291,17 +291,18 @@ class PartitionsUtils {
 };
 
 void listpartisions() { 
-    std::string drive_name = ListDrivesUtil::listDrives(true); 
+    const std::string drive_name = ListDrivesUtil::listDrives(true); 
 
     std::cout << "\nPartitions of drive " << drive_name << ":\n";
 
-    std::string cmd = "lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE -n -p " + drive_name; 
-    auto res = EXEC_QUIET(cmd); 
+    const std::string cmd = "lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE -n -p " + drive_name; 
+    const auto res = EXEC_QUIET(cmd); 
 
     if (!res.success) {
 
         ERR(ErrorCode::ProcessFailure, "lsblk failed");
         LOG_ERROR("lsblk failed");
+
     }
 
     debug_msg("after EXEC(cmd) command", g_debug);
@@ -366,7 +367,7 @@ void listpartisions() {
     std::cout << "└────────────────────────────────┘\n";
     std::cout << "Enter your choice: ";
 
-    auto choice = InputValidation::getInt(1, 4);
+    const auto choice = InputValidation::getInt(1, 4);
     if (!choice.has_value()) return;
 
     switch (*choice) {
@@ -397,12 +398,12 @@ void listpartisions() {
 // ========== Disk Space Analysis ==========··−·
  
 void analyzeDiskSpace() {
-    std::string drive_name = ListDrivesUtil::listDrives(true); 
+    const std::string drive_name = ListDrivesUtil::listDrives(true); 
 
     std::cout  << CYAN << "\n------ Disk Information ------\n" << RESET;
 
     std::string disk_cmd = "lsblk -b -o NAME,SIZE,TYPE,MOUNTPOINT -n -p " + drive_name;
-    auto disk_cmd_res = EXEC(disk_cmd); 
+    const auto disk_cmd_res = EXEC(disk_cmd); 
 
     if (!disk_cmd_res.success || disk_cmd_res.output.empty()) {
 
@@ -459,6 +460,7 @@ void analyzeDiskSpace() {
     }
 
     if (!found) {
+
         ERR(ErrorCode::DeviceNotFound, "No Disk found");
         return;
 
@@ -467,7 +469,7 @@ void analyzeDiskSpace() {
     if (!mount_point.empty() && mount_point != "-") {
 
         std::string df_cmd = "df -h '" + mount_point + "' | tail -1";
-        auto df_res = EXEC(df_cmd); 
+        const auto df_res = EXEC(df_cmd); 
         std::string df_out = df_res.output;
 
         std::istringstream dfiss(df_out);
@@ -643,9 +645,9 @@ int checkDriveHealth() {
 
     try {
 
-        std::string health_cmd = "smartctl -H " + driveHealth_name;
-        auto res = EXEC_QUIET_SUDO(health_cmd);
-        std::string health_output = removeFirstLines(res.output, 3); 
+        const std::string health_cmd = "smartctl -H " + driveHealth_name;
+        const auto res = EXEC_QUIET_SUDO(health_cmd);
+        const std::string health_output = StrUtils::removeFirstLines(res.output, 3); 
         std::cout << health_output;
 
     } catch(const std::exception& e) {
@@ -668,7 +670,7 @@ void resizeDrive() {
 
     std::cout << "Enter new size in GB for drive " << driveName << ":\n";
 
-    auto new_size = InputValidation::getUint();
+    const auto new_size = InputValidation::getUint();
     if (!new_size.has_value()) return;
 
     if (new_size == 0) {
@@ -680,8 +682,8 @@ void resizeDrive() {
 
     try {
 
-        std::string resize_cmd = "sudo parted --script " + driveName +  " resizepart 1 " + std::to_string(new_size.value_or(0)) + "GB";
-        auto res = EXEC(resize_cmd); std::string resize_output = res.output;
+        const std::string resize_cmd = "sudo parted --script " + driveName +  " resizepart 1 " + std::to_string(new_size.value_or(0)) + "GB";
+        const auto res = EXEC(resize_cmd); std::string resize_output = res.output;
 
         std::cout << resize_output << "\n";
 
@@ -751,9 +753,7 @@ private:
 
         meta[Metadata::TYPE] = extract("TYPE");
         meta[Metadata::VENDOR] = extract("VENDOR");
-        std::string tran = meta[Metadata::TRAN] = extract("TRAN");
-
-        std::transform(tran.begin(), tran.end(), tran.begin(), ::tolower);
+        std::string tran = StrUtils::toLowerString(meta[Metadata::TRAN] = extract("TRAN"));
 
         if (meta[Metadata::TYPE] != "disk") {
 
@@ -785,7 +785,7 @@ private:
     static bool confirmationKeyInput() {
         std::cout << "\nTo proceed with anything you need to retype the following confirmation key:\n";
 
-        std::string confirmation_key = confirmationKeyGenerator();
+        const std::string confirmation_key = confirmationKeyGenerator();
         std::cout << "\n" << confirmation_key << "\n";
 
         std::cout << "\nretype the key:\n";
@@ -800,7 +800,7 @@ private:
 
             std::cout << "Do you want to retry? (y/N)\n";
 
-            auto confirm_if_retry = InputValidation::getChar({'y', 'n'});
+            const auto confirm_if_retry = InputValidation::getChar({'y', 'n'});
             if (!confirm_if_retry.has_value()) return false;
 
             if (confirm_if_retry == 'n') {
@@ -874,8 +874,8 @@ private:
         tmpfile.close();
 
         // pass passphrases to crypsetup
-        std::string cryptsetup_cmd = "cryptsetup luksFormat " + drive_name + " --key-file=/tmp/LDM_tmp_dump.txt -q && shred /tmp/LDM_tmp_dump.txt";
-        auto cryptsetup_res = EXEC_SUDO(cryptsetup_cmd);
+        const std::string cryptsetup_cmd = "cryptsetup luksFormat " + drive_name + " --key-file=/tmp/LDM_tmp_dump.txt -q && shred /tmp/LDM_tmp_dump.txt";
+        const auto cryptsetup_res = EXEC_SUDO(cryptsetup_cmd);
     
         if (!cryptsetup_res.success) {
 
@@ -887,11 +887,11 @@ private:
 
         // open encrypted device
         std::cout << "[INFO] open encrypted device...\n";
-        std::string mapper_name = "enc_usb";
-        std::string mapper_path = "/dev/mapper/" + mapper_name;
+        const std::string mapper_name = "enc_usb";
+        const std::string mapper_path = "/dev/mapper/" + mapper_name;
 
-        std::string cryptsetup_open_cmd = "echo \"" + passphrase + "\" | cryptsetup open " + drive_name + " " + mapper_name + " --key-file=-";
-        auto cryptsetup_open_res = EXEC_SUDO(cryptsetup_open_cmd);
+        const std::string cryptsetup_open_cmd = "echo \"" + passphrase + "\" | cryptsetup open " + drive_name + " " + mapper_name + " --key-file=-";
+        const auto cryptsetup_open_res = EXEC_SUDO(cryptsetup_open_cmd);
 
         if (!cryptsetup_open_res.success) {
 
@@ -902,8 +902,8 @@ private:
         }       
 
         // When you need a diffrent FS then change it here
-        std::string mkfs_ext4_cmd = "mkfs.ext4 " + mapper_path;
-        auto mkfs_res = EXEC_SUDO(mkfs_ext4_cmd);
+        const std::string mkfs_ext4_cmd = "mkfs.ext4 " + mapper_path;
+        const auto mkfs_res = EXEC_SUDO(mkfs_ext4_cmd);
 
         if (!mkfs_res.success) {
 
@@ -915,9 +915,9 @@ private:
 
         // mount encrypted device
         std::cout << "[INFO] mounting encrypted device...\n";
-        std::string mount_cmd = "mount " + mapper_path + " /media/" + mapper_name;
-        auto mk_mountpoint_res = EXEC_SUDO("mkdir -p /media/" + mapper_name);
-        auto mount_res = EXEC_SUDO(mount_cmd);
+        const std::string mount_cmd = "mount " + mapper_path + " /media/" + mapper_name;
+        const auto mk_mountpoint_res = EXEC_SUDO("mkdir -p /media/" + mapper_name);
+        const auto mount_res = EXEC_SUDO(mount_cmd);
 
         if (!mk_mountpoint_res.success) {
 
@@ -937,7 +937,7 @@ private:
 
         // close 
         std::cout << "[INFO] closing encrypted device...\n";
-        auto unmount_cryptsetup_res = EXEC_SUDO("umount /media/" + mapper_name);
+        const auto unmount_cryptsetup_res = EXEC_SUDO("umount /media/" + mapper_name);
 
         if (!unmount_cryptsetup_res.success) {
 
@@ -947,8 +947,8 @@ private:
 
         }
 
-        std::string close_cryptsetup_cmd = "cryptsetup close " + mapper_name;
-        auto close_cryptsetup_res = EXEC_SUDO(close_cryptsetup_cmd);
+        const std::string close_cryptsetup_cmd = "cryptsetup close " + mapper_name;
+        const auto close_cryptsetup_res = EXEC_SUDO(close_cryptsetup_cmd);
 
         if (!close_cryptsetup_res.success) {
 
@@ -985,13 +985,13 @@ private:
         }
 
         // mapper name
-        std::string mapper_name = "enc_usb";
-        std::string mapper_path = "/dev/mapper/" + mapper_name;
+        const std::string mapper_name = "enc_usb";
+        const std::string mapper_path = "/dev/mapper/" + mapper_name;
 
         // cryptsetup open
-        std::string cryptsetup_open_cmd = "echo \"" + passphrase + "\" | cryptsetup open " + drive_name + " " + mapper_name + " --key-file=-";
+        const std::string cryptsetup_open_cmd = "echo \"" + passphrase + "\" | cryptsetup open " + drive_name + " " + mapper_name + " --key-file=-";
 
-        auto cryptsetup_open_res = EXEC_SUDO(cryptsetup_open_cmd);
+        const auto cryptsetup_open_res = EXEC_SUDO(cryptsetup_open_cmd);
 
         if (!cryptsetup_open_res.success) {
 
@@ -1002,7 +1002,7 @@ private:
         }
 
         // mount
-        auto mk_mountpoint_res = EXEC_SUDO("mkdir -p /media/" + mapper_name);
+        const auto mk_mountpoint_res = EXEC_SUDO("mkdir -p /media/" + mapper_name);
 
         if (!mk_mountpoint_res.success) {
 
@@ -1012,8 +1012,8 @@ private:
 
         }
 
-        std::string mount_cmd = "mount " + mapper_path + " /media/" + mapper_name;
-        auto mount_res = EXEC_SUDO(mount_cmd);
+        const std::string mount_cmd = "mount " + mapper_path + " /media/" + mapper_name;
+        const auto mount_res = EXEC_SUDO(mount_cmd);
 
         if (!mount_res.success) {
 
@@ -1030,7 +1030,7 @@ private:
         std::cin.get();
 
         // unmount
-        auto unmount_res = EXEC_SUDO("umount /media/" + mapper_name);
+        const auto unmount_res = EXEC_SUDO("umount /media/" + mapper_name);
 
         if (!unmount_res.success) {
 
@@ -1041,8 +1041,8 @@ private:
         }
 
         // close
-        std::string close_cmd = "cryptsetup close " + mapper_name;
-        auto close_res = EXEC_SUDO(close_cmd);
+        const std::string close_cmd = "cryptsetup close " + mapper_name;
+        const auto close_res = EXEC_SUDO(close_cmd);
 
         if (!close_res.success) {
 
@@ -1062,7 +1062,7 @@ private:
     static void cryptionAltMenu(const std::string &drive_name) {
         std::cout << "\nDo you want to Encrypt or Decrypt your USB? (e/d):\n";
 
-        auto e_or_d = InputValidation::getChar({'e', 'd'});
+        const auto e_or_d = InputValidation::getChar({'e', 'd'});
         if (!e_or_d.has_value()) return;
 
         if (e_or_d == 'e') {
@@ -1096,10 +1096,10 @@ public:
     
         std::cout << YELLOW << "\n[Warning] " << RESET << "Are you sure you want to en- or decrypt: '" << drive_name << "' ? (y/N)\n";
     
-        auto confirmation = InputValidation::getChar({'y', 'n'});
+        const auto confirmation = InputValidation::getChar({'y', 'n'});
         if (!confirmation.has_value()) return;
 
-        bool is_confirm_key_true = confirmationKeyInput();
+        const bool is_confirm_key_true = confirmationKeyInput();
 
         if (!is_confirm_key_true) {
 
@@ -1133,7 +1133,7 @@ void overwriteDriveData() {
 
     std::cout << YELLOW << "[WARNING]" << RESET << " Are you sure you want to overwrite all data on " << BOLD << drive_to_operate_on << RESET << "? This action cannot be undone! (y/n)\n";
         
-    auto confirm = InputValidation::getChar({'y', 'n'});
+    const auto confirm = InputValidation::getChar({'y', 'n'});
     if (!confirm.has_value()) return;
 
     if (confirm != 'y') {
@@ -1146,7 +1146,7 @@ void overwriteDriveData() {
 
     std::cout << "\nTo be sure you want to overwrite the data on " << BOLD << drive_to_operate_on << RESET << " you need to enter the following safety key\n";
 
-    std::string conf_key = confirmationKeyGenerator();
+    const std::string conf_key = confirmationKeyGenerator();
     LOG_INFO("Confirmation key generated for overwriting drive: " + drive_to_operate_on);
 
     std::cout << "\n" << conf_key << "\n";
@@ -1205,9 +1205,9 @@ private:
     static std::optional<DriveMetadataStruct::DriveMetadata> getMetadata(const std::string& drive) {
         DriveMetadataStruct::DriveMetadata metadata;
         // -P (Pairs) is the key here. It output KEY="VALUE"
-        std::string cmd = "lsblk -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINT,VENDOR,FSTYPE,UUID -P -p " + drive; 
+        const std::string cmd = "lsblk -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINT,VENDOR,FSTYPE,UUID -P -p " + drive; 
 
-        auto res = EXEC_QUIET(cmd);
+        const auto res = EXEC_QUIET(cmd);
 
         if (!res.success || res.output.empty()) { 
 
@@ -1266,8 +1266,8 @@ private:
 
             std::cout << "\n┌-─-─-─- SMART Data -─-─-─-─\n";
             
-            std::string smartCmd = "smartctl -i " + *metadata.name;
-            auto res = EXEC_QUIET_SUDO(smartCmd); 
+            const std::string smartCmd = "smartctl -i " + *metadata.name;
+            const auto res = EXEC_QUIET_SUDO(smartCmd); 
 
             if (!res.success) {
 
@@ -1277,7 +1277,7 @@ private:
 
             }
 
-            std::string smartOutput = removeFirstLines(res.output, 4);
+            const std::string smartOutput = StrUtils::removeFirstLines(res.output, 4);
 
             if (!smartOutput.empty()) {
 
@@ -1423,7 +1423,7 @@ private:
 
             std::cout << "Are you sure you want to burn " << iso_path << " to " << drive_name << "? (y/n)\n";
 
-            auto confirmation = InputValidation::getChar({'y', 'n'});
+            const auto confirmation = InputValidation::getChar({'y', 'n'});
             if (!confirmation.has_value()) return;
 
             if (confirmation != 'y') {
@@ -1434,7 +1434,7 @@ private:
 
             }
 
-            std::string confirmation_key = confirmationKeyGenerator();
+            const std::string confirmation_key = confirmationKeyGenerator();
             std::cout << "\nEnter the confirmation key to proceed:\n";
             std::cout << confirmation_key << "\n";
                         
@@ -1451,7 +1451,7 @@ private:
 
             std::cout << "\n" << YELLOW << "[PROCESS] Burning ISO to device...\n" << RESET;
 
-            auto unmount_res = EXEC_SUDO("umount " + drive_name + "* 2>/dev/null || true");
+            const auto unmount_res = EXEC_SUDO("umount " + drive_name + "* 2>/dev/null || true");
             
             if (!unmount_res.success) {
 
@@ -1461,7 +1461,7 @@ private:
 
             }
 
-            auto res = EXEC_SUDO("dd if=" + iso_path + " of=" + drive_name + " bs=4M status=progress && sync"); 
+            const auto res = EXEC_SUDO("dd if=" + iso_path + " of=" + drive_name + " bs=4M status=progress && sync"); 
 
             if (!res.success) {
 
@@ -1516,7 +1516,7 @@ private:
 
             }
 
-            if (!mount_name.find_first_of("-'&|<>;\"") != std::string::npos) {
+            if (mount_name.find_first_of("-'&|<>;\"") != std::string::npos) {
 
                 ERR(ErrorCode::InvalidInput, "Mount name contains invalid characters");
                 LOG_ERROR("Mount name contains invalid characters");
@@ -1524,8 +1524,8 @@ private:
 
             }
 
-            std::string mount_cmd = "mount " + drive_name + " /mnt/" + mount_name;
-            auto mount_res = EXEC_SUDO(mount_cmd);
+            const std::string mount_cmd = "mount " + drive_name + " /mnt/" + mount_name;
+            const auto mount_res = EXEC_SUDO(mount_cmd);
              
             if (!mount_res.success) {
 
@@ -1551,7 +1551,7 @@ private:
 
             }
 
-            if (!unmount_name.find("/mnt/") != std::string::npos && !unmount_name.find("/media/") != std::string::npos) {
+            if (unmount_name.find("/mnt/") != std::string::npos && unmount_name.find("/media/") != std::string::npos) {
 
                 ERR(ErrorCode::InvalidDevice, "The path you entered doesnt contain /mnt/ or /media/, what results in an failing unmount operation");
                 LOG_ERROR("The path you entered doesnt contain /mnt/ or /media/, what results in an failing unmount operation");
@@ -1559,8 +1559,8 @@ private:
 
             }
 
-            std::string unmount_cmd = "umount " + unmount_name;
-            auto unmount_res = EXEC_SUDO(unmount_cmd);
+            const std::string unmount_cmd = "umount " + unmount_name;
+            const auto unmount_res = EXEC_SUDO(unmount_cmd);
              
             if (!unmount_res.success) {
 
@@ -1577,14 +1577,16 @@ private:
     static void Restore_USB_Drive() {
         std::cout << "\nChoose the USB/Drive you want to restore (overwrite with empty filesystem and partition table):\n";
         const std::string restore_device_name = ListDrivesUtil::listDrives(true);
+
         try {
 
             std::cout << "Are you sure you want to overwrite/clean the ISO/Disk_Image from: " << restore_device_name << " ? [y/n]\n";
             
-            auto restore_confirm = InputValidation::getChar({'y', 'n'});
+            const auto restore_confirm = InputValidation::getChar({'y', 'n'});
             if (!restore_confirm.has_value()) return;
 
             if (restore_confirm != 'y') {
+
                 std::cout << CYAN << "[INFO] " << RESET << "Operation cancelled\n";
                 LOG_INFO("restore usb operation cancelled");
                 return;
@@ -1593,7 +1595,7 @@ private:
 
             EXEC_QUIET_SUDO("umount " + restore_device_name + "* 2>/dev/null || true");
             
-            auto wipefs_res = EXEC_SUDO("wipefs -a " + restore_device_name);
+            const auto wipefs_res = EXEC_SUDO("wipefs -a " + restore_device_name);
 
             if (!wipefs_res.success) {
 
@@ -1604,7 +1606,7 @@ private:
             }
 
             // Zero out start
-            auto dd_res = EXEC_SUDO("dd if=/dev/zero of=" + restore_device_name + " bs=1M count=10 status=progress && sync");
+            const auto dd_res = EXEC_SUDO("dd if=/dev/zero of=" + restore_device_name + " bs=1M count=10 status=progress && sync");
 
             if (!dd_res.success) {
 
@@ -1615,7 +1617,7 @@ private:
             }
 
             // Create partition table
-            auto parted_res = EXEC_SUDO("parted -s " + restore_device_name + " mklabel msdos mkpart primary 1MiB 100%");
+            const auto parted_res = EXEC_SUDO("parted -s " + restore_device_name + " mklabel msdos mkpart primary 1MiB 100%");
 
             if (!parted_res.success) {
 
@@ -1626,7 +1628,7 @@ private:
             }
 
             // Probe partitions
-            auto partprobe_res = EXEC_SUDO("partprobe " + restore_device_name);
+            const auto partprobe_res = EXEC_SUDO("partprobe " + restore_device_name);
 
             if (!partprobe_res.success) { 
 
@@ -1648,7 +1650,7 @@ private:
 
             }
 
-            auto mkfs_res = EXEC_SUDO("mkfs.vfat -F32 " + partition_path);
+            const auto mkfs_res = EXEC_SUDO("mkfs.vfat -F32 " + partition_path);
 
             if (!mkfs_res.success) {
 
@@ -1688,7 +1690,7 @@ private:
 
 public:
     static void mainMountUtil() {
-        int menu_input = GenericMenuIO::noColorTuiMenu("Mount/Unmount", getMenuItems()); 
+        const int menu_input = GenericMenuIO::noColorTuiMenu("Mount/Unmount", getMenuItems()); 
         
         switch (menu_input) {
             case Burniso: {
@@ -2167,7 +2169,7 @@ class Clone {
         static void CloneDrive(const std::string &source, const std::string &target) {
             std::cout << "\n[CloneDrive] Do you want to clone data from " << source << " to " << target << "? This will overwrite all data on the target drive(n) (y/n): ";
             
-            auto confirmation = InputValidation::getChar({'y', 'n'});
+            const auto confirmation = InputValidation::getChar({'y', 'n'});
             if (!confirmation.has_value()) return;
 
             if (confirmation != 'y') {
@@ -2179,12 +2181,14 @@ class Clone {
             } else if (confirmation == 'y') {
                 try {
 
-                    auto res = EXEC_SUDO("dd if=" + source + " of=" + target + " bs=5M status=progress && sync");
+                    const auto res = EXEC_SUDO("dd if=" + source + " of=" + target + " bs=5M status=progress && sync");
 
                     if (!res.success) {
+
                         LOG_ERROR("Failed to clone drive from " + source + " to " + target);
                         ERR(ErrorCode::ProcessFailure, "Failed to clone data from " + source + " to " + target);
                         return;
+
                     }
 
                     std::cout << GREEN << "[Success] Drive cloned from " << source << " to " << target << "\n" << RESET;
@@ -2249,7 +2253,7 @@ class Clone {
                 if (source_drive == val_target) {
 
                     LOG_ERROR("Source and target drives are the same");
-                    ldm_runtime_error("[ERROR] Source and target drives cannot be the same!");
+                    dmgr_runtime_error("[ERROR] Source and target drives cannot be the same!");
                     return;
 
                 } else {
@@ -2272,14 +2276,13 @@ class Clone {
 // ========== Log Viewer Utility ==========
 
 void logViewer() {
-    
-
     std::ifstream file(log_path);
 
     if (!file) {
 
         LOG_ERROR("Unable to read log file at " + log_path.string());
         ERR(ErrorCode::FileNotFound, "Unable to read log file at path: " + log_path.string());
+
         std::cout << "Please read the log file manually at: " << log_path.string() << "\n";
         return;
 
@@ -2319,7 +2322,7 @@ void logViewer() {
 
     std::cout << "\nDo you want to empty the log file content? (y/n):\n";
     
-    auto clear_loggs = InputValidation::getChar({'y', 'n'});
+    const auto clear_loggs = InputValidation::getChar({'y', 'n'});
     if (!clear_loggs.has_value()) return;
 
     if (clear_loggs == 'y') {
@@ -2393,24 +2396,19 @@ class ConfigValueHandeling {
                 std::string value = line.substr(pos + 1);
 
                 // trim whitespace
-                key.erase(0, key.find_first_not_of(" \t"));
-                key.erase(key.find_last_not_of(" \t") + 1);
-
-                value.erase(0, value.find_first_not_of(" \t"));
-                value.erase(value.find_last_not_of(" \t") + 1);
+                key = StrUtils::trimWhiteSpace(key);
+                value = StrUtils::trimWhiteSpace(value);
 
                 if (key == "UI_MODE") cfg.UI_MODE = value;
                 else if (key == "COMPILE_MODE") cfg.COMPILE_MODE = value;
                 else if (key == "COLOR_THEME") cfg.THEME_COLOR_MODE = value;
                 else if (key == "SELECTION_COLOR") cfg.SELECTION_COLOR_MODE = value;
                 else if (key == "DRY_RUN_MODE") {
-                    std::string v = value;
-                    std::transform(v.begin(), v.end(), v.begin(), ::tolower);
+                    std::string v = StrUtils::toLowerString(value);
                     cfg.DRY_RUN_MODE = (v == "true");
                 }
                 else if (key == "ROOT_MODE") {
-                    std::string v = value;
-                    std::transform(v.begin(), v.end(), v.begin(), ::tolower);
+                    std::string v = StrUtils::toLowerString(value);
                     cfg.ROOT_MODE = (v == "true");
                 };
             }
@@ -2430,35 +2428,38 @@ class ConfigValueHandeling {
             std::cout << "└─────────────────────────┘\n";   
             std::cout << "\nDo you want to edit the config file? (y/n)\n";
             
-            auto config_edit_confirm = InputValidation::getChar({'y', 'n'}); 
+            const auto config_edit_confirm = InputValidation::getChar({'y', 'n'}); 
             if (!config_edit_confirm.has_value()) return; 
 
-            if (config_edit_confirm == 'y') {
+            if (config_edit_confirm != 'y') return;
 
-                if (!std::filesystem::exists(lume_path)) {
-                    ERR(ErrorCode::FileNotFound, "Lume editor not found at: " + lume_path.string());
-                    LOG_ERROR("Lume editor missing at: " + lume_path.string());
-                    return;
-                }
+            if (!std::filesystem::exists(lume_path)) {
 
-                if (!std::filesystem::exists(config_path)) {
-                    ERR(ErrorCode::FileNotFound, "Config file not found at: " + config_path.string());
-                    LOG_ERROR("Config file missing at: " + config_path.string());
-                    return;
-                }
-
-                std::string cmd = "\"" + lume_path.string() + "\" \"" + config_path.string() + "\"";
-
-                std::cout << LEAVETERMINALSCREEN << std::flush;
-                term.restoreTerminal();
-
-                system(cmd.c_str());
-
-                std::cout << NEWTERMINALSCREEN << std::flush;
-
-                term.enableRawMode();
+                ERR(ErrorCode::FileNotFound, "Lume editor not found at: " + lume_path.string());
+                LOG_ERROR("Lume editor missing at: " + lume_path.string());
                 return;
-            }        
+
+            }
+
+            if (!std::filesystem::exists(config_path)) {
+
+                ERR(ErrorCode::FileNotFound, "Config file not found at: " + config_path.string());
+                LOG_ERROR("Config file missing at: " + config_path.string());
+                return;
+
+            }
+
+            const std::string cmd = "\"" + lume_path.string() + "\" \"" + config_path.string() + "\"";
+
+            std::cout << LEAVETERMINALSCREEN << std::flush;
+            term.restoreTerminal();
+
+            system(cmd.c_str());
+
+            std::cout << NEWTERMINALSCREEN << std::flush;
+
+            term.enableRawMode();
+            return;      
         }
 
         static void colorThemeHandler() {
@@ -2493,9 +2494,9 @@ class DriveFingerprinting {
 private:
     static DriveMetadataStruct::DriveMetadata getMetadata(const std::string& drive) {
         DriveMetadataStruct::DriveMetadata metadata;
-        std::string cmd = "lsblk -o NAME,SIZE,MODEL,SERIAL,UUID -P -p " + drive; 
+        const std::string cmd = "lsblk -o NAME,SIZE,MODEL,SERIAL,UUID -P -p " + drive; 
 
-        auto res = EXEC_QUIET(cmd);
+        const auto res = EXEC_QUIET(cmd);
 
         if (!res.success || res.output.empty()) { 
 
@@ -2569,14 +2570,14 @@ public:
 
         LOG_INFO("Retrieved metadata for drive: " + drive_name_fingerprinting);
 
-        std::string combined_metadata =
+        const std::string combined_metadata =
             *metadata.name + "|" +
             *metadata.size + "|" +
             *metadata.model + "|" +
             *metadata.serial + "|" +
             *metadata.uuid;
 
-        std::string fingerprint = fingerprinting(combined_metadata);
+        const std::string fingerprint = fingerprinting(combined_metadata);
 
         LOG_INFO("Generated fingerprint for drive: " + drive_name_fingerprinting);
 

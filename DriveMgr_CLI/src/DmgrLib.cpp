@@ -1,27 +1,5 @@
 #include "../include/DmgrLib.h"
 
-// ========= Terminos IO =========
-
-void TerminosIO::initiateTerminosInput() {
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO);
-}
-
-void TerminosIO::enableRawMode() {
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-}
-
-void TerminosIO::restoreTerminal() {
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-}
-
-void TerminosIO::enableTerminosInput_diableAltTerminal() {
-    initiateTerminosInput();
-    std::cout << LEAVETERMINALSCREEN;
-}
-
-
 // ========= Logger =========
 
 enum class LogType {
@@ -152,12 +130,6 @@ std::string filePathHandler(const std::string &file_path) {
     return path;
 }
 
-void ldm_runtime_error(const std::string& error_message) {
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    std::cout << "\033[?1049l";
-    throw std::runtime_error("[ERROR] " + error_message);
-}
-
 
 // ========= input validation =========
 
@@ -177,9 +149,8 @@ std::string readLine() {
 namespace InputValidation {
 
     std::optional<int> getInt(const std::vector<int> &valid_ints) {
-        std::string s_input = readLine();
+        const std::string s_input = readLine();
         
-        // Case 1: getline failed → s_input == "" AND stream is bad
         if (!std::cin.good()) {
 
             ERR(ErrorCode::IOError, "Failed to read input");
@@ -187,7 +158,6 @@ namespace InputValidation {
 
         }
 
-        // Case 2: user entered empty line → s_input == "" but stream is fine
         if (s_input.empty()) {
 
             ERR(ErrorCode::InvalidInput, "Input cannot be empty");
@@ -199,7 +169,7 @@ namespace InputValidation {
         try {
 
             size_t idx = 0;
-            int i_input = std::stoi(s_input, &idx);
+            const int i_input = std::stoi(s_input, &idx);
 
             if (idx != s_input.size()) {
 
@@ -229,7 +199,7 @@ namespace InputValidation {
     }
 
     std::optional<int> getInt(int min_value, int max_value) {
-        auto val = getInt({});
+        const auto val = getInt({});
         if (!val) return std::nullopt;
 
         if (*val < min_value || *val > max_value) {
@@ -266,7 +236,7 @@ namespace InputValidation {
         try {
 
             size_t idx = 0;
-            unsigned long long tmp = std::stoull(s_input, &idx);
+            const unsigned long long tmp = std::stoull(s_input, &idx);
 
             if (idx != s_input.size()) {
 
@@ -294,7 +264,7 @@ namespace InputValidation {
     }
 
     std::optional<char> getChar(const std::vector<char> &valid_chars) {
-        std::string s_input = readLine();
+        const std::string s_input = readLine();
 
         if (!std::cin.good()) {
 
@@ -304,26 +274,7 @@ namespace InputValidation {
 
         }
 
-        if (s_input.empty()) {
-
-            ERR(ErrorCode::InvalidInput, "Input cannot be empty");
-            LOG_ERROR("Input is empty");
-            return std::nullopt;
-
-        }
-
-        auto start = s_input.find_first_not_of(" \t\n\r");
-        auto end   = s_input.find_last_not_of(" \t\n\r");
-
-        if (start == std::string::npos) {
-
-            ERR(ErrorCode::InvalidInput, "Input cannot be empty or whitespace");
-            LOG_ERROR("Input is empty or whitespace");
-            return std::nullopt;
-
-        }
-
-        std::string trimmed = s_input.substr(start, end - start + 1);
+        const std::string trimmed = StrUtils::trimWhiteSpace(s_input);
 
         if (trimmed.size() != 1) {
 
@@ -333,9 +284,8 @@ namespace InputValidation {
 
         }
 
-        char c_input = trimmed[0];
+        const char c_input = trimmed[0];
 
-        // Validate allowed characters
         if (!valid_chars.empty() && std::find(valid_chars.begin(), valid_chars.end(), c_input) == valid_chars.end()) {
 
             ERR(ErrorCode::InvalidInput, "Character not allowed");
@@ -346,7 +296,6 @@ namespace InputValidation {
 
         return c_input;
     }
-
 
 }
 
@@ -381,10 +330,8 @@ std::string confirmationKeyGenerator() {
 
 bool askForConfirmation(const std::string &prompt) {
     std::cout << prompt << "(y/n)\n";
-    char confirm;
-    std::cin >> confirm;
-
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // clear inputbuffer
+    auto confirm = InputValidation::getChar({'y', 'n'});
+    if (!confirm.has_value()) return false;
 
     if (confirm != 'Y' && confirm != 'y') {
         std::cout << BOLD << "[INFO] Operation cancelled\n" << RESET;
@@ -393,19 +340,6 @@ bool askForConfirmation(const std::string &prompt) {
     } 
 
     return true;
-}
-
-std::string removeFirstLines(const std::string& text, int n) {
-    std::string out = text;
-    for (int i = 0; i < n; i++) {
-        size_t pos = out.find('\n');
-
-        if (pos == std::string::npos)
-            return out; // nothing left to remove
-
-        out.erase(0, pos + 1);
-    }
-    return out;
 }
 
 void menuQues(bool& running) {   

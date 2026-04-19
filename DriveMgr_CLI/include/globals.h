@@ -3,6 +3,9 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include "EnvSys.hpp"
+#include "TermiosIO.h"
+
 
 // === color related globals ===
 
@@ -47,6 +50,21 @@ extern bool g_no_log;
 
 /** @brief Global varibale to enable/disable debug messages */
 extern bool g_debug;
+
+
+// === altTerminal Screen ===
+/**
+ * @brief Enters into a Alternate Terminal Screen
+ */
+#define NEWTERMINALSCREEN "\033[?1049h"
+
+/**
+ * @brief Leaves the Alternate Terminal Screen
+ */
+#define LEAVETERMINALSCREEN "\033[?1049l"
+
+
+extern struct termios oldt, newt;
 
 
 // === paths ===

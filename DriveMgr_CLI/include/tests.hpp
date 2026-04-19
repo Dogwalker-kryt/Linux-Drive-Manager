@@ -3,6 +3,7 @@
 #include "DmgrLib.h"
 #include "debug.h"
 #include "exec_cmd.h"
+#include "StringUtils.hpp"
 
 // ========== Test Framework ==========
 // v0.9.0 - Simple test harness with result tracking and reporting
@@ -254,7 +255,7 @@ TestResult test_confirmationKeyGenerator() {
 TestResult test_removeFirstLines() {
     std::string input = "line1\nline2\nline3\n";
     std::string expected = "line3\n";
-    std::string output = removeFirstLines(input, 2);
+    std::string output = StrUtils::removeFirstLines(input, 2);
 
     if (output != expected)
 
@@ -264,7 +265,7 @@ TestResult test_removeFirstLines() {
 }
 
 TestResult test_fileExists() {
-    std::string path = filePathHandler("/.local/share/DriveMgr/data/config.conf");
+    std::string path = filePathHandler("/.local/share/DriveMgr_3/data/config.conf");
     
     if (!fileExists(path))
 
@@ -277,7 +278,64 @@ TestResult test_fileExists() {
     return {"test_fileExists", true, ""};
 }
 
+TestResult test_filePathHandler() {
+    std::string input = "./test/path/file.txt";
+    std::string path = filePathHandler(input);
 
+    if (path.empty()) {
+
+        return {"test_filePathHandler", false, "filePathHandler returned empty string for valid input"};
+   
+    } else if (path.find("~") != std::string::npos) {
+
+        return {"test_filePathHandler", true, ""};
+    
+    }
+
+    return {"test_filePathHandler", true, ""};
+}
+
+TestResult test_StrUtils_trimWhiteSpace() {
+    std::string s = " string ";
+    std::string new_s = StrUtils::trimWhiteSpace(s);
+
+    if (new_s.find(" ") != std::string::npos || new_s == s) {
+        return {"test_StrUtils_trimWhiteSpace", false, "contains whitespace"};
+    }
+
+    return {"test_StrUtils_trimWhiteSpace", true, ""};
+}
+
+TestResult test_StrUtils_replaceAll() {
+    std::string s = "test";
+    std::string s2 = "test";
+    s2 = StrUtils::replaceAll("hamburger");
+
+    if (s == s2) {
+        return {"test_StrUtils_replaceAll", false, "string couldnt be overwritten"};
+    }
+    return {"test_StrUtils_replaceAll", true, ""};
+}
+
+TestResult test_StrUtils_toLowerCase() {
+    std::string s = "HAMBURGER";
+    std::string l_s = StrUtils::toLowerString(s);
+
+    if (s == l_s) {
+        return {"test_StrUtils_toLower", false, "Didnt convert upper case to lower case"};
+    }
+    return {"test_StrUtils_toLower", true, ""};
+}
+
+TestResult test_StrUtils_toUpperCase() {
+    std::string s = "Hamburger";
+    std::string l_s = StrUtils::toUpperString(s);
+
+    if (s == l_s) {
+        return {"test_StrUtils_toLower", false, "Didnt convert lower case to upper case"};
+    }
+    return {"test_StrUtils_toLower", true, ""};
+}
 
 
 
@@ -311,6 +369,11 @@ std::vector<TestResult> run_all_tests_internal() {
     results.push_back(test_confirmationKeyGenerator());
     results.push_back(test_removeFirstLines());
     results.push_back(test_fileExists());
+    results.push_back(test_filePathHandler());
+    results.push_back(test_StrUtils_trimWhiteSpace());
+    results.push_back(test_StrUtils_replaceAll());
+    results.push_back(test_StrUtils_toLowerCase());
+    results.push_back(test_StrUtils_toUpperCase());
 
     return results;
 }
