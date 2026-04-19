@@ -151,7 +151,6 @@ namespace InputValidation {
     std::optional<int> getInt(const std::vector<int> &valid_ints) {
         const std::string s_input = readLine();
         
-        // Case 1: getline failed → s_input == "" AND stream is bad
         if (!std::cin.good()) {
 
             ERR(ErrorCode::IOError, "Failed to read input");
@@ -159,7 +158,6 @@ namespace InputValidation {
 
         }
 
-        // Case 2: user entered empty line → s_input == "" but stream is fine
         if (s_input.empty()) {
 
             ERR(ErrorCode::InvalidInput, "Input cannot be empty");
@@ -276,26 +274,7 @@ namespace InputValidation {
 
         }
 
-        if (s_input.empty()) {
-
-            ERR(ErrorCode::InvalidInput, "Input cannot be empty");
-            LOG_ERROR("Input is empty");
-            return std::nullopt;
-
-        }
-
-        auto start = s_input.find_first_not_of(" \t\n\r");
-        auto end   = s_input.find_last_not_of(" \t\n\r");
-
-        if (start == std::string::npos) {
-
-            ERR(ErrorCode::InvalidInput, "Input cannot be empty or whitespace");
-            LOG_ERROR("Input is empty or whitespace");
-            return std::nullopt;
-
-        }
-
-        const std::string trimmed = s_input.substr(start, end - start + 1);
+        const std::string trimmed = StrUtils::trimWhiteSpace(s_input);
 
         if (trimmed.size() != 1) {
 
@@ -307,7 +286,6 @@ namespace InputValidation {
 
         const char c_input = trimmed[0];
 
-        // Validate allowed characters
         if (!valid_chars.empty() && std::find(valid_chars.begin(), valid_chars.end(), c_input) == valid_chars.end()) {
 
             ERR(ErrorCode::InvalidInput, "Character not allowed");
@@ -318,7 +296,6 @@ namespace InputValidation {
 
         return c_input;
     }
-
 
 }
 
@@ -353,10 +330,8 @@ std::string confirmationKeyGenerator() {
 
 bool askForConfirmation(const std::string &prompt) {
     std::cout << prompt << "(y/n)\n";
-    char confirm;
-    std::cin >> confirm;
-
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // clear inputbuffer
+    auto confirm = InputValidation::getChar({'y', 'n'});
+    if (!confirm.has_value()) return false;
 
     if (confirm != 'Y' && confirm != 'y') {
         std::cout << BOLD << "[INFO] Operation cancelled\n" << RESET;
