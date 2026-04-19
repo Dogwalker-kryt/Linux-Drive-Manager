@@ -43,6 +43,7 @@
 #include "globals.h"
 #include "EnvSys.hpp"
 #include "TermiosIO.h"
+#include "StringUtils.hpp"
 
 
 // ==================== Color ====================
