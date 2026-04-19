@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.25.62_dev
+// v0.9.25.63
 
 // C++ libraries
 #include <regex>
@@ -43,7 +43,7 @@
 // ==================== definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.25.62_dev")
+#define VERSION std::string("v0.9.25.63")
 
 // ========== Partition Management ========== 
 
@@ -753,9 +753,7 @@ private:
 
         meta[Metadata::TYPE] = extract("TYPE");
         meta[Metadata::VENDOR] = extract("VENDOR");
-        std::string tran = meta[Metadata::TRAN] = extract("TRAN");
-
-        std::transform(tran.begin(), tran.end(), tran.begin(), ::tolower);
+        std::string tran = StrUtils::toLowerString(meta[Metadata::TRAN] = extract("TRAN"));
 
         if (meta[Metadata::TYPE] != "disk") {
 
@@ -2398,24 +2396,19 @@ class ConfigValueHandeling {
                 std::string value = line.substr(pos + 1);
 
                 // trim whitespace
-                key.erase(0, key.find_first_not_of(" \t"));
-                key.erase(key.find_last_not_of(" \t") + 1);
-
-                value.erase(0, value.find_first_not_of(" \t"));
-                value.erase(value.find_last_not_of(" \t") + 1);
+                key = StrUtils::trimWhiteSpace(key);
+                value = StrUtils::trimWhiteSpace(value);
 
                 if (key == "UI_MODE") cfg.UI_MODE = value;
                 else if (key == "COMPILE_MODE") cfg.COMPILE_MODE = value;
                 else if (key == "COLOR_THEME") cfg.THEME_COLOR_MODE = value;
                 else if (key == "SELECTION_COLOR") cfg.SELECTION_COLOR_MODE = value;
                 else if (key == "DRY_RUN_MODE") {
-                    std::string v = value;
-                    std::transform(v.begin(), v.end(), v.begin(), ::tolower);
+                    std::string v = StrUtils::toLowerString(value);
                     cfg.DRY_RUN_MODE = (v == "true");
                 }
                 else if (key == "ROOT_MODE") {
-                    std::string v = value;
-                    std::transform(v.begin(), v.end(), v.begin(), ::tolower);
+                    std::string v = StrUtils::toLowerString(value);
                     cfg.ROOT_MODE = (v == "true");
                 };
             }
