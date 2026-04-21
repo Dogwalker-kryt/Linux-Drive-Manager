@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.25.63
+// v0.9.27.63_dev
 
 // C++ libraries
 #include <regex>
@@ -38,12 +38,12 @@
 #include "../include/StringUtils.hpp"
 #include "../include/dmgr_runtime_error.hpp"
 #include "../include/TermiosIO.h"
-
+#include "../include/Spinner.hpp"
 
 // ==================== definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.25.63")
+#define VERSION std::string("v0.9.27.63_dev")
 
 // ========== Partition Management ========== 
 
@@ -1167,8 +1167,8 @@ void overwriteDriveData() {
     std::cout << " \n";
 
     try {
-        auto res_urandom = EXEC_SUDO("dd if=/dev/urandom of=" + drive_to_operate_on + " bs=8M status=progress && sync"); 
-        auto res_zero = EXEC_SUDO("dd if=/dev/zero of=" + drive_to_operate_on + " bs=8M status=progress && sync"); 
+        const auto res_urandom = EXEC_SUDO_SPINNER("dd if=/dev/urandom of=" + drive_to_operate_on + " bs=16M >/dev/null 2>&1 && sync"); 
+        const auto res_zero = EXEC_SUDO_SPINNER("dd if=/dev/zero of=" + drive_to_operate_on + " bs=16M >/dev/null 2>&1 && sync"); 
             
         if (!res_urandom.success && !res_zero.success) {
 
@@ -1449,8 +1449,9 @@ private:
 
             }
 
-            std::cout << "\n" << YELLOW << "[PROCESS] Burning ISO to device...\n" << RESET;
+            std::cout << "\n" << YELLOW << "[PROCESS]" << RESET << " Burning ISO to device...\n";
 
+            std::cout << CYAN << "[Phase 1]:\n";
             const auto unmount_res = EXEC_SUDO("umount " + drive_name + "* 2>/dev/null || true");
             
             if (!unmount_res.success) {
@@ -1461,6 +1462,7 @@ private:
 
             }
 
+            std::cout << CYAN << "\n[Phase 2]:\n";
             const auto res = EXEC_SUDO("dd if=" + iso_path + " of=" + drive_name + " bs=4M status=progress && sync"); 
 
             if (!res.success) {
@@ -1593,9 +1595,11 @@ private:
 
             }
 
+            std::cout << CYAN << "\n[Phase 1]:\n";
+
             EXEC_QUIET_SUDO("umount " + restore_device_name + "* 2>/dev/null || true");
             
-            const auto wipefs_res = EXEC_SUDO("wipefs -a " + restore_device_name);
+            const auto wipefs_res = EXEC_QUIET_SUDO("wipefs -a " + restore_device_name + " >/dev/null 2>&1 && sync");
 
             if (!wipefs_res.success) {
 
@@ -1606,7 +1610,9 @@ private:
             }
 
             // Zero out start
-            const auto dd_res = EXEC_SUDO("dd if=/dev/zero of=" + restore_device_name + " bs=1M count=10 status=progress && sync");
+            std::cout << CYAN << "\n[Phase 2]:\n";
+
+            const auto dd_res = EXEC_SUDO_SPINNER("dd if=/dev/zero of=" + restore_device_name + " bs=1M count=10 >/dev/null 2>&1 && sync");
 
             if (!dd_res.success) {
 
@@ -1616,8 +1622,11 @@ private:
 
             }
 
+            
+
             // Create partition table
-            const auto parted_res = EXEC_SUDO("parted -s " + restore_device_name + " mklabel msdos mkpart primary 1MiB 100%");
+            std::cout << CYAN << "\n[Phase 3]:\n";
+            const auto parted_res = EXEC_SUDO_SPINNER("parted -s " + restore_device_name + " mklabel msdos mkpart primary 1MiB 100%");
 
             if (!parted_res.success) {
 
@@ -1650,7 +1659,7 @@ private:
 
             }
 
-            const auto mkfs_res = EXEC_SUDO("mkfs.vfat -F32 " + partition_path);
+            const auto mkfs_res = EXEC_QUIET_SUDO("mkfs.vfat -F32 " + partition_path);
 
             if (!mkfs_res.success) {
 
