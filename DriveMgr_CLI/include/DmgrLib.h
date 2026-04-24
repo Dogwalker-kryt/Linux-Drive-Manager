@@ -49,13 +49,13 @@
 // ==================== Color ====================
 namespace Color {
     inline std::string reset()   { return "\033[0m"; }
-    inline std::string red()     { return g_no_color ? std::string() : "\033[31m"; }
-    inline std::string green()   { return g_no_color ? std::string() : "\033[32m"; }
-    inline std::string yellow()  { return g_no_color ? std::string() : "\033[33m"; }
-    inline std::string blue()    { return g_no_color ? std::string() : "\033[34m"; }
-    inline std::string magenta() { return g_no_color ? std::string() : "\033[35m"; }
-    inline std::string cyan()    { return g_no_color ? std::string() : "\033[36m"; }
-    inline std::string bold()    { return g_no_color ? std::string() : "\033[1m"; }
+    inline std::string red()     { return Globals::g_no_color ? std::string() : "\033[31m"; }
+    inline std::string green()   { return Globals::g_no_color ? std::string() : "\033[32m"; }
+    inline std::string yellow()  { return Globals::g_no_color ? std::string() : "\033[33m"; }
+    inline std::string blue()    { return Globals::g_no_color ? std::string() : "\033[34m"; }
+    inline std::string magenta() { return Globals::g_no_color ? std::string() : "\033[35m"; }
+    inline std::string cyan()    { return Globals::g_no_color ? std::string() : "\033[36m"; }
+    inline std::string bold()    { return Globals::g_no_color ? std::string() : "\033[1m"; }
     inline std::string inverse() { return "\033[7m"; }
 }
 
@@ -340,7 +340,14 @@ namespace InputValidation {
      */
     std::optional<char> getChar(const std::vector<char> &valid_chars = {});
 
-
+    /**
+     * @brief Validates user input as string
+     * 
+     * reads string input. you can trim the input lenght by using its param
+     * 
+     * @param string_size if set, will only return the first n chars in the string
+     */
+    std::optional<std::string> getString(const uint32_t &string_size = 0);
 }
 
 // ==================== Side/Helper Functions ====================

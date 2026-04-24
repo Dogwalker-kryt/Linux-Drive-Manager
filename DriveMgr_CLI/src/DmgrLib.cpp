@@ -24,7 +24,7 @@ const char* Logger::logMessage(LogType log_type) {
 }
 
 void Logger::log(LogType type, const std::string& operation, const char* func) {
-        if (g_no_log == false) {
+        if (Globals::g_no_log == false) {
 
             auto now = std::chrono::system_clock::now();
             std::time_t currentTime = std::chrono::system_clock::to_time_t(now);
@@ -34,14 +34,14 @@ void Logger::log(LogType type, const std::string& operation, const char* func) {
 
             std::string log_msg = "[" + std::string(timeStr) + "] event: " + logMessage(type) + operation + " (location: " + std::string(func) + ")";
 
-            std::ofstream log_file(log_path, std::ios::app);
+            std::ofstream log_file(Globals::log_path, std::ios::app);
 
             if (log_file) {
 
                 log_file << log_msg << std::endl;
 
             } else {
-                std::cerr << RED << "[Logger Error] Unable to open log file: " << log_path << " Reason: " << strerror(errno) << RESET <<"\n";
+                std::cerr << RED << "[Logger Error] Unable to open log file: " << Globals::log_path << " Reason: " << strerror(errno) << RESET <<"\n";
             }
 
         } else {
@@ -297,6 +297,35 @@ namespace InputValidation {
         return c_input;
     }
 
+    std::optional<std::string> getString(const uint32_t &string_size) {
+        const std::string s_input = readLine();
+
+        if (!std::cin.good()) {
+
+            ERR(ErrorCode::IOError, "Failed to read input");
+            LOG_ERROR("std::getline() failed");
+            return std::nullopt;
+
+        }
+
+        std::string s = StrUtils::trimWhiteSpace(s_input);
+
+        if (s.empty()) {
+
+            ERR(ErrorCode::InvalidInput, "Input cannot be emtpy");
+            LOG_ERROR("Input cannot be emtpy");
+            return std::nullopt;
+
+        }
+
+        if (string_size >= 1) {
+
+            s.resize(string_size);
+        
+        }
+
+        return s;
+    }
 }
 
 

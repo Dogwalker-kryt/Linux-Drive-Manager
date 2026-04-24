@@ -20,13 +20,16 @@
 
 #include "DmgrLib.h"
 #include "command_exec.h"
+#include "Spinner.hpp"
+#include <atomic>
 
 // ==================== Command Execution Abstraction ====================
 
 enum class ExecMode {
     NORMAL,      // Regular execution
     DRY_RUN,     // Show what would run
-    QUIET        // No output to console, only logging
+    QUIET,       // No output to console, only logging
+    PROGRESS     // Show spinner
 };
 
 // Extended result type for high-level usage
@@ -44,8 +47,7 @@ public:
         std::string final_cmd = cmd;
         if (use_sudo) final_cmd = "sudo " + cmd;
 
-        // Dry-run mode
-        if (g_dry_run || mode == ExecMode::DRY_RUN) {
+        if (Globals::g_dry_run || mode == ExecMode::DRY_RUN) {
 
             std::cout << YELLOW << "[DRY-RUN] Would execute: " << final_cmd << RESET << "\n";
             LOG_DRYRUN(final_cmd);
@@ -56,9 +58,24 @@ public:
 
         }
 
+        std::atomic<bool> b_done = false;
+        std::thread spinner;
+
+        if (mode == ExecMode::PROGRESS) {
+            spinner = std::thread([&]() {
+                SPINNER(b_done);
+            });
+        }
+
         // Execute via low-level runner
         ExecResult r = run_command(final_cmd);
-
+        b_done = true;
+        
+        // Spinner
+        if (spinner.joinable()) {
+            spinner.join();
+        }
+        
         // Fill high-level result
         result.exit_code = r.exit_code;
         result.success   = (r.exit_code == 0);
@@ -85,7 +102,6 @@ public:
                 std::cout << result.output << "\n";
 
         }
-
         return result;
     }
 
@@ -109,13 +125,82 @@ public:
         }
         return res;
     }
+
+    static inline CmdExecResult run_spinner(const std::string &cmd) {
+        return run(cmd, false, ExecMode::PROGRESS);
+    }
+
+    static inline CmdExecResult run_sudo_spinner(const std::string &cmd) {
+        return run(cmd, true, ExecMode::PROGRESS);
+    }
 };
 
 // Quick helpers for common patterns
+/** 
+ * @brief runs ``` cmd ``` command
+ * @param cmd as std::string 
+ * @returns res.output, res.success, res.exit_code
+ * @note 
+ * auto res = EXEC(cmd);
+ * 
+ * or
+ *
+ * EXEC(cmd)
+ */
 #define EXEC(cmd)              CmdExec::run(cmd)
+
+/** 
+ * @brief runs ``` cmd ``` command as Sudo user
+ * @param cmd as std::string 
+ * @returns res.output, res.success, res.exit_code
+ * @note 
+ * auto res = EXEC_SUDO(cmd);
+ */
 #define EXEC_SUDO(cmd)         CmdExec::run_sudo(cmd)
+
+/** 
+ * @brief runs ``` cmd ``` command with no text ouput printed to the terminal
+ * @param cmd as std::string 
+ * @returns res.output, res.success, res.exit_code
+ * @note 
+ * auto res = EXEC_QUIET(cmd);
+ */
 #define EXEC_QUIET(cmd)        CmdExec::run_quiet(cmd, false)
+
+/** 
+ * @brief runs ``` cmd ``` command as Sudo with no text ouput printed to the terminal
+ * @param cmd as std::string 
+ * @returns res.output, res.success, res.exit_code
+ * @note 
+ * auto res = EXEC_QUIET_SUDO(cmd);
+ */
 #define EXEC_QUIET_SUDO(cmd)   CmdExec::run_quiet(cmd, true)
+
+/** 
+ * @brief runs ``` cmd ``` command, if commands fails throws std::runtime_error
+ * @param cmd as std::string 
+ * @returns res.output, res.success, res.exit_code
+ * @note 
+ * auto res = EXEC_OR_THROW(cmd);
+ */
 #define EXEC_OR_THROW(cmd)     CmdExec::run_or_throw(cmd)
+
+/** 
+ * @brief runs ``` cmd ``` command with spinner
+ * @param cmd as std::string 
+ * @returns res.output, res.success, res.exit_code
+ * @note 
+ * auto res = EXEC_SPINNER(cmd);
+ */
+#define EXEC_SPINNER(cmd)      CmdExec::run_spinner(cmd)
+
+/** 
+ * @brief runs ``` cmd ``` command as Sudo with spinner
+ * @param cmd as std::string 
+ * @returns res.output, res.success, res.exit_code
+ * @note 
+ * auto res = EXEC_SPINNER(cmd);
+ */
+#define EXEC_SUDO_SPINNER(cmd) CmdExec::run_sudo_spinner(cmd)
 
 #endif // EXEC_CMD_H

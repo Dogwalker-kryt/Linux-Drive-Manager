@@ -20,6 +20,13 @@ class ListDrivesUtil {
 
         inline static std::vector<ListDrivesUtil::Row> rows{};
         
+        struct DriveCache {
+            size_t run_count_idx;
+            std::vector<Row> rows;
+        };
+
+        inline static DriveCache drive_cache{};
+
         /**
          * @brief This is the Tui menu logic from the listDrive function finaly put in its own function
          * @param drives use the std::vector<std::string> where you stored your fetched drives
@@ -27,6 +34,9 @@ class ListDrivesUtil {
          */
         static std::string tuiForListDrives(const std::vector<std::string> &drives, std::vector<ListDrivesUtil::Row> &rows);
 
+        static void printDriveRow(int idx, const Row& r);
+        
+        static void printDriveHeader();
     public:
         /**
          * @brief Prints lsblk output to the terminal. TUI input can be turned on
@@ -34,4 +44,6 @@ class ListDrivesUtil {
          * @returns selected drive name as string. TUI must be enabled for this to happen
          */
         static std::string listDrives(bool input_mode);
+
+        static std::string listDaDrives(bool input_mode);
 };

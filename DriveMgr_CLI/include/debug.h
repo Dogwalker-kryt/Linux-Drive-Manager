@@ -25,9 +25,9 @@
 //extern bool g_no_color;
 
 namespace Color {
-    inline std::string reset_err()   { return g_no_color ? "" : "\033[0m"; }
-    inline std::string red_err()     { return g_no_color ? "" : "\033[31m"; }
-    inline std::string bold_err()    { return g_no_color ? "" : "\033[1m"; }
+    inline std::string reset_err()   { return Globals::g_no_color ? "" : "\033[0m"; }
+    inline std::string red_err()     { return Globals::g_no_color ? "" : "\033[31m"; }
+    inline std::string bold_err()    { return Globals::g_no_color ? "" : "\033[1m"; }
 }
 
 enum class ErrorCode {

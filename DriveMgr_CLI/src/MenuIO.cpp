@@ -9,12 +9,12 @@ int MainMenuIO::colorTuiMenu(const std::vector<std::pair<MenuOptionsMain, std::s
 
     auto res = EXEC("clear"); 
     std::cout << "Use Up/Down arrows and Enter to select an option.\n\n";
-    std::cout << g_THEME_COLOR << "┌─────────────────────────────────────────────────┐\n" << RESET;
-    std::cout << g_THEME_COLOR << "│" << RESET << BOLD << "              DRIVE MANAGEMENT UTILITY           " << RESET << g_THEME_COLOR << "│\n" << RESET;
-    std::cout << g_THEME_COLOR << "├─────────────────────────────────────────────────┤\n" << RESET;
+    std::cout << Globals::g_THEME_COLOR << "┌─────────────────────────────────────────────────┐\n" << RESET;
+    std::cout << Globals::g_THEME_COLOR << "│" << RESET << BOLD << "              DRIVE MANAGEMENT UTILITY           " << RESET << Globals::g_THEME_COLOR << "│\n" << RESET;
+    std::cout << Globals::g_THEME_COLOR << "├─────────────────────────────────────────────────┤\n" << RESET;
     for (size_t i = 0; i < menuItems.size(); ++i) {
 
-        std::cout << g_THEME_COLOR << "│ " << RESET;
+        std::cout << Globals::g_THEME_COLOR << "│ " << RESET;
 
         // Build inner content with fixed width
         std::ostringstream inner;
@@ -22,14 +22,14 @@ int MainMenuIO::colorTuiMenu(const std::vector<std::pair<MenuOptionsMain, std::s
         std::string innerStr = inner.str();
 
         if (menuItems[i].first == 0) {
-            innerStr = g_THEME_COLOR + innerStr + RESET;
+            innerStr = Globals::g_THEME_COLOR + innerStr + RESET;
         }
 
         // Print right border and newline
-        std::cout << g_THEME_COLOR << " │\n" << RESET;
+        std::cout << Globals::g_THEME_COLOR << " │\n" << RESET;
 
     }
-    std::cout  << g_THEME_COLOR << "└─────────────────────────────────────────────────┘\n" << RESET;
+    std::cout  << Globals::g_THEME_COLOR << "└─────────────────────────────────────────────────┘\n" << RESET;
 
     std::cout << "\033[" << (total + 1) << "A";
 
@@ -46,17 +46,17 @@ int MainMenuIO::colorTuiMenu(const std::vector<std::pair<MenuOptionsMain, std::s
             std::string innerStr = inner.str();
 
             if (menuItems[i].first == 0) {
-                innerStr = g_THEME_COLOR + innerStr + RESET;
+                innerStr = Globals::g_THEME_COLOR + innerStr + RESET;
             }
 
-            std::cout << g_THEME_COLOR << "│ " << RESET;
+            std::cout << Globals::g_THEME_COLOR << "│ " << RESET;
 
             // Apply inverse highlight if selected
             if (i == selected) std::cout << INVERSE;
             std::cout << innerStr;
             if (i == selected) std::cout << RESET;
 
-            std::cout << g_THEME_COLOR << " │" << RESET << "\n";
+            std::cout << Globals::g_THEME_COLOR << " │" << RESET << "\n";
         }
 
         // Move cursor back up to top of menu

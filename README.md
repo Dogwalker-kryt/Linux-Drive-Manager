@@ -35,8 +35,8 @@ but to add a safety and orchestration layer on top of them.
 
 ### CLI:
 
-- Experimental: `v0.9.25.63`  
-  _(New StrUtils and applyed StrUtils)_
+- Experimental: `v0.9.28.64`  
+  _(idk waht even is new)_
 
 ### GUI (Not getting Updated anymore):
 

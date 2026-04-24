@@ -85,10 +85,10 @@ TestResult test_cmdexec_combined_output() {
 }
 
 TestResult test_cmdexec_dry_run() {
-    g_dry_run = true;
+    Globals::g_dry_run = true;
     std::cout << "\n";
     auto res = EXEC_QUIET("touch /tmp/test_drivemgr_dryrun_test_file_12345");
-    g_dry_run = false;
+    Globals::g_dry_run = false;
 
     // Verify command wasn't actually executed
     if (fileExists("/tmp/test_drivemgr_dryrun_test_file_12345"))
