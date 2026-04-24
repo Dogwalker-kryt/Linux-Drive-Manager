@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.27.63_dev
+// v0.9.27.63
 
 // C++ libraries
 #include <regex>
@@ -43,7 +43,7 @@
 // ==================== definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.27.63_dev")
+#define VERSION std::string("v0.9.27.63")
 
 // ========== Partition Management ========== 
 
