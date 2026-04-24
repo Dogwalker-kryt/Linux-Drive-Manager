@@ -19,7 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.27.63
+// v0.9.28.64
 
 // C++ libraries
 #include <regex>
@@ -43,7 +43,7 @@
 // ==================== definitions ====================
 
 // === Version ===
-#define VERSION std::string("v0.9.27.63")
+#define VERSION std::string("v0.9.28.64")
 
 // ========== Partition Management ========== 
 
@@ -305,7 +305,7 @@ void listpartisions() {
 
     }
 
-    debug_msg("after EXEC(cmd) command", g_debug);
+    debug_msg("after EXEC(cmd) command", Globals::g_debug);
 
     std::istringstream iss(res.output);
     std::string line;
@@ -597,11 +597,11 @@ void formatDrive() {
                 std::cout << "Choose a Drive to Format with label\n";
                 const std::string driveName = ListDrivesUtil::listDrives(true);
 
-                std::string label;
                 std::cout << "Enter label: ";
-                std::getline(std::cin, label);
+                auto label = InputValidation::getString();
+                if (!label.has_value()) return;
 
-                FormatUtils::formatDriveWithLabel(driveName, label);
+                FormatUtils::formatDriveWithLabel(driveName, *label);
             }
 
             break;
@@ -611,15 +611,14 @@ void formatDrive() {
                 std::cout << "Choose a Drive to Format with label and filesystem type\n";
                 const std::string driveName = ListDrivesUtil::listDrives(true);
 
-                std::string label;
                 std::cout << "Enter label: ";
-                std::getline(std::cin, label);
-
-                std::string fsType;
+                auto label = InputValidation::getString();
+                if (!label.has_value()) return;
+                
                 std::cout << "Enter filesystem type (e.g. ext4, ntfs, vfat): ";
-                std::getline(std::cin, fsType);
+                auto fsType = InputValidation::getString();
 
-                FormatUtils::formatDriveWithLabelAndFS(driveName, label, fsType);
+                FormatUtils::formatDriveWithLabelAndFS(driveName, *label, *fsType);
             }
 
             break;
@@ -1152,8 +1151,8 @@ void overwriteDriveData() {
     std::cout << "\n" << conf_key << "\n";
     std::cout << "\nEnter the confirmation key:\n";
 
-    std::string user_input;
-    std::getline(std::cin, user_input);
+    auto user_input = InputValidation::getString();
+    if (!user_input.has_value()) return;
 
     if (user_input != conf_key) {
 
@@ -2251,10 +2250,10 @@ class Clone {
                 std::cout << "\nEnter a Target drive/device to clone the data on to it (dont choose the same drive):\n";
                 std::cout << YELLOW << "[WARNING]" << RESET << " Make sure to choose the mount path of the target" << BOLD << " (e.g., /media/target_drive)\n" << RESET;
                 
-                std::string target_drive;
-                std::getline(std::cin, target_drive);
+                auto target_drive = InputValidation::getString();
+                if (!target_drive.has_value()) return;
 
-                const auto validated = validateTargetDriveName(target_drive);
+                const auto validated = validateTargetDriveName(*target_drive);
                 if (!validated) { return; }
 
                 const std::string val_target = *validated;
@@ -2285,14 +2284,14 @@ class Clone {
 // ========== Log Viewer Utility ==========
 
 void logViewer() {
-    std::ifstream file(log_path);
+    std::ifstream file(Globals::log_path);
 
     if (!file) {
 
-        LOG_ERROR("Unable to read log file at " + log_path.string());
-        ERR(ErrorCode::FileNotFound, "Unable to read log file at path: " + log_path.string());
+        LOG_ERROR("Unable to read log file at " + Globals::log_path.string());
+        ERR(ErrorCode::FileNotFound, "Unable to read log file at path: " + Globals::log_path.string());
 
-        std::cout << "Please read the log file manually at: " << log_path.string() << "\n";
+        std::cout << "Please read the log file manually at: " << Globals::log_path.string() << "\n";
         return;
 
     }
@@ -2336,7 +2335,7 @@ void logViewer() {
 
     if (clear_loggs == 'y') {
 
-        Logger::clearLoggs(log_path);
+        Logger::clearLoggs(Globals::log_path);
 
     }
 
@@ -2361,13 +2360,13 @@ class ConfigValueHandeling {
         static CONFIG_VALUES configHandler() {
             CONFIG_VALUES cfg{}; 
 
-            if (g_config_src_flag == true) {
+            if (Globals::g_config_src_flag == true) {
 
-                config_path = g_config_src_path;
+                Globals::config_path = Globals::g_config_src_path;
 
             }
 
-            if (config_path.empty()) {
+            if (Globals::config_path.empty()) {
 
                 ERR(ErrorCode::DataUnavailable, "Using default config values!");
                 LOG_ERROR("config file is using defautl values, due to emtpy config");
@@ -2375,20 +2374,20 @@ class ConfigValueHandeling {
 
             }
 
-            if (!std::filesystem::exists(config_path)) {
+            if (!std::filesystem::exists(Globals::config_path)) {
 
-                ERR(ErrorCode::FileNotFound, "Config file not found at path: " + config_path.string() + ". Check if the config exists and is readable. Returning default config values.");
-                LOG_ERROR("Config file not found at path: " + config_path.string());
+                ERR(ErrorCode::FileNotFound, "Config file not found at path: " + Globals::config_path.string() + ". Check if the config exists and is readable. Returning default config values.");
+                LOG_ERROR("Config file not found at path: " + Globals::config_path.string());
                 return cfg;
 
             }
 
-            std::ifstream config_file(config_path);
+            std::ifstream config_file(Globals::config_path);
 
             if (!config_file.is_open()) {
 
                 LOG_ERROR("[Config_handler] Cannot open config file");
-                ERR(ErrorCode::FileNotFound, "Cannot open config file at path: " + config_path.string() + ". Check if the config exists and is readable. Returning default config values.");
+                ERR(ErrorCode::FileNotFound, "Cannot open config file at path: " + Globals::config_path.string() + ". Check if the config exists and is readable. Returning default config values.");
                 return cfg;
 
             }
@@ -2442,23 +2441,23 @@ class ConfigValueHandeling {
 
             if (config_edit_confirm != 'y') return;
 
-            if (!std::filesystem::exists(lume_path)) {
+            if (!std::filesystem::exists(Globals::lume_path)) {
 
-                ERR(ErrorCode::FileNotFound, "Lume editor not found at: " + lume_path.string());
-                LOG_ERROR("Lume editor missing at: " + lume_path.string());
+                ERR(ErrorCode::FileNotFound, "Lume editor not found at: " + Globals::lume_path.string());
+                LOG_ERROR("Lume editor missing at: " + Globals::lume_path.string());
                 return;
 
             }
 
-            if (!std::filesystem::exists(config_path)) {
+            if (!std::filesystem::exists(Globals::config_path)) {
 
-                ERR(ErrorCode::FileNotFound, "Config file not found at: " + config_path.string());
-                LOG_ERROR("Config file missing at: " + config_path.string());
+                ERR(ErrorCode::FileNotFound, "Config file not found at: " + Globals::config_path.string());
+                LOG_ERROR("Config file missing at: " + Globals::config_path.string());
                 return;
 
             }
 
-            const std::string cmd = "\"" + lume_path.string() + "\" \"" + config_path.string() + "\"";
+            const std::string cmd = "\"" + Globals::lume_path.string() + "\" \"" + Globals::config_path.string() + "\"";
 
             std::cout << LEAVETERMINALSCREEN << std::flush;
             term.restoreTerminal();
@@ -2474,14 +2473,14 @@ class ConfigValueHandeling {
         static void colorThemeHandler() {
             CONFIG_VALUES cfg = configHandler();
 
-            g_THEME_COLOR = RESET;
-            g_SELECTION_COLOR = RESET;
+            Globals::g_THEME_COLOR = RESET;
+            Globals::g_SELECTION_COLOR = RESET;
 
             auto theme_color = available_colores.find(cfg.THEME_COLOR_MODE);
 
             if (theme_color != available_colores.end()) {
 
-                g_THEME_COLOR = theme_color->second;
+                Globals::g_THEME_COLOR = theme_color->second;
 
             }
 
@@ -2489,7 +2488,7 @@ class ConfigValueHandeling {
 
             if (selection_color != available_colores.end()) {
 
-                g_SELECTION_COLOR = selection_color->second;
+                Globals::g_SELECTION_COLOR = selection_color->second;
 
             }
         }
@@ -2666,33 +2665,33 @@ int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; i++) {
         std::string a(argv[i]); 
 
-        if (a == "--no-color" || a == "-c")                        { g_no_color = true; continue; }
+        if (a == "--no-color" || a == "-c")                        { Globals::g_no_color = true; continue; }
 
-        if (a == "--no-log" || a == "-nl")                         { g_no_log = true; continue; }
+        if (a == "--no-log" || a == "-nl")                         { Globals::g_no_log = true; continue; }
 
         if (a == "--help" || a == "-h")                            { std::cout << LEAVETERMINALSCREEN; printUsage(argv[0]); return 0; }
 
         if (a == "--version" || a == "-v")                         { std::cout << LEAVETERMINALSCREEN; std::cout << "DriveMgr CLI version: " << VERSION << "\n"; return 0; }
         
-        if (a == "--debug" || a == "-d")                           { g_debug = true; continue; }
+        if (a == "--debug" || a == "-d")                           { Globals::g_debug = true; continue; }
 
         if (a == "--logs" || a == "-l")                            { logViewer(); std::cout << LEAVETERMINALSCREEN; return 0; }
 
-        if (a == "--dry-run" || a == "-n")                         { g_dry_run = true; continue; }
+        if (a == "--dry-run" || a == "-n")                         { Globals::g_dry_run = true; continue; }
 
         if (a == "--info" || a == "-i")                            { std::cout << LEAVETERMINALSCREEN; Info(); return 0; }
 
         if (a == "--select" || a == "-sd")                         { 
 
-            g_selected_drive_by_flag = true; 
+            Globals::g_selected_drive_by_flag = true; 
             
-            g_selected_drive = argv[i + 1];
+            Globals::g_selected_drive = argv[i + 1];
             i++;
             
-            if (!fileExists(g_selected_drive)) {
+            if (!fileExists(Globals::g_selected_drive)) {
 
                 ERR(ErrorCode::DeviceNotFound, "");
-                LOG_ERROR("The device: '" + g_selected_drive + "' could not be found");
+                LOG_ERROR("The device: '" + Globals::g_selected_drive + "' could not be found");
                 break;
 
             }
@@ -2702,19 +2701,19 @@ int main(int argc, char* argv[]) {
 
         if (a == "--config-src" || a == "-cfg-src")                {
 
-            g_config_src_flag = true;
+            Globals::g_config_src_flag = true;
 
-            g_config_src_path = argv[i + 1];
+            Globals::g_config_src_path = argv[i + 1];
             i++;
 
-            std::string val_config_src_path = filePathHandler(g_config_src_path);
+            std::string val_config_src_path = filePathHandler(Globals::g_config_src_path);
 
-            g_config_src_path = val_config_src_path;
+            Globals::g_config_src_path = val_config_src_path;
 
-            if (!fileExists(g_config_src_path)) {
+            if (!fileExists(Globals::g_config_src_path)) {
 
-                ERR(ErrorCode::FileNotFound, "Your custom config: '" + g_config_src_path + "coudnt be found");
-                LOG_ERROR("The file: '" + g_config_src_path + "' could not be found");
+                ERR(ErrorCode::FileNotFound, "Your custom config: '" + Globals::g_config_src_path + "coudnt be found");
+                LOG_ERROR("The file: '" + Globals::g_config_src_path + "' could not be found");
                 break;
 
             } 
@@ -2739,7 +2738,7 @@ int main(int argc, char* argv[]) {
     bool dry_run_mode = cfg.DRY_RUN_MODE;
 
     if (dry_run_mode == true) {
-        g_dry_run = true;
+        Globals::g_dry_run = true;
     }
 
 
@@ -2754,7 +2753,7 @@ int main(int argc, char* argv[]) {
         {EXITPROGRAM, "Exit"}
     };
 
-    if (g_debug || (VERSION.find("dev") != std::string::npos) == true) {
+    if (Globals::g_debug || (VERSION.find("dev") != std::string::npos) == true) {
 
         menuItems.insert(menuItems.end() - 1, {TESTS, "Tests"});
     }
@@ -2764,7 +2763,7 @@ int main(int argc, char* argv[]) {
     using menu_renderer = int(*)(const std::vector<std::pair<MenuOptionsMain, std::string>> &menuItems);
     menu_renderer menu_render_strategy = nullptr;
 
-    if (g_no_color == true) {
+    if (Globals::g_no_color == true) {
         menu_render_strategy = MainMenuIO::noColorTuiMenu;
     } else {
         menu_render_strategy = MainMenuIO::colorTuiMenu;
