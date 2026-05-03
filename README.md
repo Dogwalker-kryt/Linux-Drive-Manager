@@ -240,6 +240,33 @@ make
 
 ---
 
+## Reinstalation/Updating
+
+If you alredy installed Sectr-ctl and want to update, move its location, or just reintsall it because something went wrong.
+Here are the following choices:
+
+### 1st python script
+
+**In development!!!!**
+
+
+### 2nd Manual
+
+#### step 1 backing up
+
+If you dont want to loose your color theme and other config file values, consider backing it up 
+
+#### step 2 delete
+
+Delete the ```Sectr-ctl``` (```DriveMgr``` old name) in the directory you installed it
+
+#### step 3 redownload and setup
+
+Clone the repo. Then use the setup scirpt or manual install the Sectr-ctl.
+If this is done then swap the config file with you backed up version
+
+---
+
 ## Usage
 
 The recommended terminal hight and width are:
