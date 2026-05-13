@@ -1,4 +1,4 @@
-#include "../include/dmgr_runtime_error.hpp"
+#include "../include/utils/dmgr_runtime_error.hpp"
 
 void dmgr_runtime_error(const std::string &msg) {
     TerminosIO::restoreTerminal();

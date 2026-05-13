@@ -1,9 +1,9 @@
 #pragma once
 
 #include "DmgrLib.h"
-#include "debug.h"
-#include "exec_cmd.h"
-#include "StringUtils.hpp"
+#include "../utils/debug.h"
+#include "../cmd_exec/exec_cmd.h"
+#include "../utils/StringUtils.hpp"
 
 // ========== Test Framework ==========
 // v0.9.0 - Simple test harness with result tracking and reporting

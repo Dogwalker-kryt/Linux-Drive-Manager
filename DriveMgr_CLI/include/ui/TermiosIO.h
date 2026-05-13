@@ -2,7 +2,7 @@
 
 #include <termios.h>
 #include <unistd.h>
-#include "globals.h"
+#include "../globals.h"
 
 /** @brief Class for handling terminal I/O operations */
 class TerminosIO {

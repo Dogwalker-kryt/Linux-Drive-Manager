@@ -39,11 +39,11 @@
 #include <random>
 
 // Project headers
-#include "debug.h"
+#include "utils/debug.h"
 #include "globals.h"
 #include "EnvSys.hpp"
-#include "TermiosIO.h"
-#include "StringUtils.hpp"
+#include "ui/TermiosIO.h"
+#include "utils/StringUtils.hpp"
 
 
 // ==================== Color ====================
@@ -92,7 +92,7 @@ inline TerminosIO term;
 /**
  * @brief Logger class for DriveMgr
  * Provides static methods for logging events with different log levels (error, warning, info, success, dry-run, exec) to a log file.
- * Logs are written to ~/.local/share/DriveMgr/data/log.dat with timestamps and log level tags. The logger respects the g_no_log flag to enable/disable logging and ensures proper file ownership
+ * Logs are written to path/DriveMgr/data/log.dat with timestamps and log level tags. The logger respects the g_no_log flag to enable/disable logging and ensures proper file ownership
  */
 class Logger {
 private:

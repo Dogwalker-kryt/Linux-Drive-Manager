@@ -39,7 +39,7 @@ static std::string __drive_read_all_from_fd(int fd) {
 }
 
 // Inline implementation so users only need to compile the main CLI file.
-static ExecResult run_command(const std::string& cmd, int /*timeout_seconds*/ = 0) {
+static ExecResult run_command(const char* cmd, int /*timeout_seconds*/ = 0) {
     ExecResult res;
     res.exit_code = -1;
 
@@ -65,7 +65,7 @@ static ExecResult run_command(const std::string& cmd, int /*timeout_seconds*/ = 
         // close unused fds
         close(outpipe[0]); close(outpipe[1]);
         close(errpipe[0]); close(errpipe[1]);
-        execl("/bin/sh", "sh", "-c", cmd.c_str(), (char*)NULL);
+        execl("/bin/sh", "sh", "-c", cmd, (char*)NULL);
         _exit(127);
     }
 

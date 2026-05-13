@@ -41,7 +41,7 @@ int LDMUpdater::comparing_versions(const Version_int &version_local, const Versi
 }
 
 std::string LDMUpdater::getVersionGithub() {
-    std::string cmd = "curl -s https://api.github.com/repos/Dogwalker-kryt/Linux-Drive-Manager/releases/latest";
+    std::string cmd = "curl -s https://api.github.com/repos/Dogwalker-kryt/Sectr-ctl/releases/latest";
     auto res = EXEC_QUIET_SUDO(cmd);
     std::string json = res.output;
 
@@ -57,7 +57,6 @@ std::string LDMUpdater::getVersionGithub() {
 }
 
 void LDMUpdater::updaterMain(const std::string &LOCAL_VERSION) {
-    std::cout << "Initializing Updater...\n";
     std::cout << YELLOW << "\n[INFO] " << RESET << "Make sure you are connected to the internet\n";
 
     std::string dev_suffix;
@@ -73,7 +72,13 @@ void LDMUpdater::updaterMain(const std::string &LOCAL_VERSION) {
     int cmp = comparing_versions(local_version, remote_version);
 
     if (cmp < 0) {
-        std::cout << YELLOW << "\n[UPDATE]" << RESET << "New version available: " << remote_version_str << "\n";
+        std::cout << YELLOW << "\n[UPDATE] " << RESET << "New version available: " << remote_version_str << "\n";
+        std::cout
+            << "If you'd like to update, you can visit the GitHub releases page: "
+            << BLUE << "https://github.com/Dogwalker-kryt/Sectr-ctl/releases" << RESET << "\n"
+            << "Just reinstall the latest version (you may want to back up your config file first).\n"
+            << "If you're happy with your current version, feel free to keep using it — no pressure at all.\n";
+
     } else if (cmp > 0) {
         std::cout << YELLOW << "\n[INFO]" << RESET << "Local version is newer (probably dev build or custom build)\n";
 

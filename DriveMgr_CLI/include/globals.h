@@ -4,7 +4,8 @@
 #include <vector>
 #include <filesystem>
 #include "EnvSys.hpp"
-#include "TermiosIO.h"
+#include "ui/TermiosIO.h"
+#include "scf_str.hpp"
 
 namespace Globals{
     // === color related globals ===

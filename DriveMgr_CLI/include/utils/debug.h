@@ -20,7 +20,7 @@
 #define DEBUG_H
 
 #include <iostream>
-#include "globals.h"
+#include "../globals.h"
 
 //extern bool g_no_color;
 

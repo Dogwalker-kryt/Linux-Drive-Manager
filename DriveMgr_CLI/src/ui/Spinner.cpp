@@ -1,4 +1,4 @@
-#include "../include/Spinner.hpp"
+#include "../include/ui/Spinner.hpp"
 
 
 std::array<std::string, 4> SimpleSpinner::frames = {"|", "/", "—", "\\"};

@@ -1,14 +1,8 @@
 #pragma once
 
-#include "exec_cmd.h"
-#include "DmgrLib.h"
-
-/**
- * @brief Checks the filesystem of a given device and returns its status.
- * @param device The device path to check (e.g., "/dev/sda1").
- * @param fstype The filesystem type of the device (e.g., "ext4", "ntfs").
- */
-std::string checkFilesystem(const std::string& device, const std::string& fstype);
+#include "../cmd_exec/exec_cmd.h"
+#include "../DmgrLib.h"
+#include "../DiskLister.hpp"
 
 // ========== TUI drive selection/listing ==========
 
@@ -26,6 +20,7 @@ class ListDrivesUtil {
         };
 
         inline static DriveCache drive_cache{};
+        inline static DiskLister disk_lister{};
 
         /**
          * @brief This is the Tui menu logic from the listDrive function finaly put in its own function
@@ -39,7 +34,7 @@ class ListDrivesUtil {
         static void printDriveHeader();
     public:
         /**
-         * @brief Prints lsblk output to the terminal. TUI input can be turned on
+         * @brief Prints available drives to the terminal. TUI input can be turned on
          * @param input_mode if 'true' then the TUI selection enables and returns the selected drive when pressed enter
          * @returns selected drive name as string. TUI must be enabled for this to happen
          */

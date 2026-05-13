@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "../include/debug.h"
+#include "../include/utils/debug.h"
 #include <iostream>
 #include <map>
 

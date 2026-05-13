@@ -1,7 +1,7 @@
 #pragma once
 
-#include "DmgrLib.h"
-#include "exec_cmd.h"
+#include "../DmgrLib.h"
+#include "../cmd_exec/exec_cmd.h"
 
 
 enum MenuOptionsMain {

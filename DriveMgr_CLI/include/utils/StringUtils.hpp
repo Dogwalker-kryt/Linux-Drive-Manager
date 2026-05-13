@@ -2,11 +2,11 @@
 
 #include <iostream>
 #include <string>
-#include "debug.h"
+#include "../utils/debug.h"
 #include <algorithm>
 #include <optional>
-#include "TermiosIO.h"
-#include "dmgr_runtime_error.hpp"
+#include "../ui/TermiosIO.h"
+#include "../utils/dmgr_runtime_error.hpp"
 
 namespace StrUtils {
     /**

@@ -20,7 +20,7 @@
 #define LDM_UPDATER
 
 #include "DmgrLib.h"
-#include "exec_cmd.h"
+#include "../cmd_exec/exec_cmd.h"
 
 
 class LDMUpdater {

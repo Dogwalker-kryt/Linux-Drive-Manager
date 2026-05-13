@@ -18,9 +18,9 @@
 #ifndef EXEC_CMD_H
 #define EXEC_CMD_H
 
-#include "DmgrLib.h"
+#include "../DmgrLib.h"
 #include "command_exec.h"
-#include "Spinner.hpp"
+#include "../ui/Spinner.hpp"
 #include <atomic>
 
 // ==================== Command Execution Abstraction ====================
@@ -68,7 +68,7 @@ public:
         }
 
         // Execute via low-level runner
-        ExecResult r = run_command(final_cmd);
+        ExecResult r = run_command(final_cmd.c_str());
         b_done = true;
         
         // Spinner

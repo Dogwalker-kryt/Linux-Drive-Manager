@@ -1,6 +1,6 @@
 #pragma once
 
-#include "DmgrLib.h"
+#include "../DmgrLib.h"
 #include <thread>
 #include <chrono>
 #include <atomic>

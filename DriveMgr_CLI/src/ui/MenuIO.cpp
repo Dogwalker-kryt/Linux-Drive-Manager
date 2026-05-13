@@ -1,4 +1,4 @@
-#include "../include/MenuIO.hpp"
+#include "../ui/MenuIO.hpp"
 
 
 int MainMenuIO::colorTuiMenu(const std::vector<std::pair<MenuOptionsMain, std::string>> &menuItems) {
@@ -7,7 +7,7 @@ int MainMenuIO::colorTuiMenu(const std::vector<std::pair<MenuOptionsMain, std::s
     int selected = 0;
     int total = (int)menuItems.size();
 
-    auto res = EXEC("clear"); 
+    std::cout << "\033[2J\033[H" << std::flush;
     std::cout << "Use Up/Down arrows and Enter to select an option.\n\n";
     std::cout << Globals::g_THEME_COLOR << "┌─────────────────────────────────────────────────┐\n" << RESET;
     std::cout << Globals::g_THEME_COLOR << "│" << RESET << BOLD << "              DRIVE MANAGEMENT UTILITY           " << RESET << Globals::g_THEME_COLOR << "│\n" << RESET;
@@ -90,7 +90,7 @@ int MainMenuIO::noColorTuiMenu(const std::vector<std::pair<MenuOptionsMain, std:
     int selected = 0;
     int total = (int)menuItems.size();
 
-    auto res = EXEC("clear");
+    std::cout << "\033[2J\033[H" << std::flush;
     std::cout << "Use Up/Down arrows and Enter to select an option.\n\n";
     std::cout << "┌─────────────────────────────────────────────────────┐\n";
     std::cout << "│" << BOLD << "                DRIVE MANAGEMENT UTILITY             " << RESET << "│\n";

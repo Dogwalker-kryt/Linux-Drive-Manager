@@ -1,5 +1,5 @@
 /* 
- * DriveMgr - Linux Drive Management Utility
+ * Sectr-ctl (old. DriveMgr) - Linux Drive Management Utility
  * Copyright (C) 2025 Dogwalker-kryt
  *
  * This program is free software: you can redistribute it and/or modify
@@ -31,18 +31,14 @@
 // custom includes
 #include "../include/DmgrLib.h"
 #include "../include/LDM_updater.h"
-#include "../include/ListDrivesUtil.hpp"
 #include "../include/tests.hpp"
-#include "../include/MenuIO.hpp"
-#include "../include/globals.h"
-#include "../include/StringUtils.hpp"
-#include "../include/dmgr_runtime_error.hpp"
-#include "../include/TermiosIO.h"
-#include "../include/Spinner.hpp"
+#include "../include/ui/MenuIO.hpp"
+#include "../include/ui/Spinner.hpp"
+#include "../include/ui/ListDrivesUtil.hpp"
 
 // ==================== definitions ====================
 
-// === Version ===
+// ==== Version ====
 #define VERSION std::string("v0.9.28.64_dev")
 
 // ========== Partition Management ========== 
@@ -2089,7 +2085,7 @@ private:
         }
 
         script << "#!/bin/sh\n";
-        script << "# DriveMgr generated helper script: inspect and run manually or allow DriveMgr to run with explicit confirmation.\n";
+        script << "# Sectr-ctl generated helper script: inspect and run manually or allow Sectr-ctl to run with explicit confirmation.\n";
         script << "# Device: " << device << "\n";
         script << "set -e\n";
         script << "echo 'This script will attempt to mount root and reinstall grub. Inspect before running.'\n";
@@ -2105,7 +2101,7 @@ private:
         auto chmod_res = EXEC("chmod +x " + scriptPath);
 
         std::cout << "A helper script was created at: " << scriptPath << "\n";
-        std::cout << "Open and inspect it. If you want DriveMgr to attempt to run the helper script now, type the exact phrase 'I UNDERSTAND' (all caps) to confirm: ";
+        std::cout << "Open and inspect it. If you want Sectr-ctl to attempt to run the helper script now, type the exact phrase 'I UNDERSTAND' (all caps) to confirm: ";
         std::string confirmation;
 
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
@@ -2114,7 +2110,7 @@ private:
         if (confirmation == "I UNDERSTAND") {
 
             std::cout << "Running helper script (requires sudo). This is destructive if incorrect.\n";
-            LOG_INFO("User allowed DriveMgr to run system recovery helper script: " + scriptPath);
+            LOG_INFO("User allowed Sectr-ctl to run system recovery helper script: " + scriptPath);
             
             auto run_res = EXEC_SUDO("sh " + scriptPath);
             std::cout << "Helper script finished. Inspect system state manually.\n";
@@ -2600,7 +2596,7 @@ public:
 
 // ========== Main Menu and Utilities ==========
 
-void Info() {
+static void Info() {
     int setw_for_version;
     if (VERSION.find_last_of("_dev")) { setw_for_version = 98; } else { setw_for_version = 102; }
     std::cout << "\n┌────────────────────────────────────────────────────────" << BOLD << " Info " << RESET << "────────────────────────────────────────────────────────┐\n";
@@ -2671,7 +2667,7 @@ int main(int argc, char* argv[]) {
 
         if (a == "--help" || a == "-h")                            { std::cout << LEAVETERMINALSCREEN; printUsage(argv[0]); return 0; }
 
-        if (a == "--version" || a == "-v")                         { std::cout << LEAVETERMINALSCREEN; std::cout << "DriveMgr CLI version: " << VERSION << "\n"; return 0; }
+        if (a == "--version" || a == "-v")                         { std::cout << LEAVETERMINALSCREEN; std::cout << "Sectr-ctl CLI version: " << VERSION << "\n"; return 0; }
         
         if (a == "--debug" || a == "-d")                           { Globals::g_debug = true; continue; }
 

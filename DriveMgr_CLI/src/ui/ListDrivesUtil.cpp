@@ -1,5 +1,4 @@
-#include "../include/ListDrivesUtil.hpp"
-
+#include "../ui/ListDrivesUtil.hpp"
 
 std::string checkFilesystem(const std::string& device, const std::string& fstype) {
     if (fstype.empty()) return "Unknown filesystem";
@@ -63,7 +62,7 @@ std::string ListDrivesUtil::tuiForListDrives(const std::vector<std::string> &dri
 
             std::cout << std::left
                 << std::setw(3)  << i
-                << std::setw(18) << rows[i].device
+                << std::setw(16) << rows[i].device
                 << std::setw(10) << rows[i].size
                 << std::setw(10) << rows[i].type
                 << std::setw(15) << rows[i].mount
@@ -127,7 +126,7 @@ void ListDrivesUtil::printDriveHeader() {
 
     std::cout << std::left << std::setw(5) << "#";
     if (!Globals::g_no_color) std::cout << BOLD;
-    std::cout << std::setw(18) << "Device";
+    std::cout << std::setw(16) << "Device";
 
     if (!Globals::g_no_color) std::cout << RESET << BOLD;
     std::cout << std::setw(10) << "Size";
@@ -171,35 +170,23 @@ std::string ListDrivesUtil::listDrives(bool input_mode) {
 
     drives.clear();
 
-    // Run lsblk using new CmdExec
-    auto lsblk_res = EXEC_QUIET("lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE -d -n -p");
-    std::string lsblk = lsblk_res.output;
+    // Use DiskLister to fetch drives
+    disk_lister.refresh();
+    auto disk_info_rows = disk_lister.getPhysicalDisksInfoAsRows();
             
     drive_cache.run_count_idx = 1;
 
     printDriveHeader();
 
-    // Parse lsblk output
-    std::istringstream iss(lsblk);
-    std::string line;
-    int idx = 0;
-
-    while (std::getline(iss, line)) {
-        if (line.find("disk") == std::string::npos) continue;
-
-        std::istringstream lss(line);
+    // Convert DiskLister::Row to ListDrivesUtil::Row
+    int idx = 1;
+    for (const auto& disk_row : disk_info_rows) {
         ListDrivesUtil::Row r;
-
-        lss >> r.device >> r.size >> r.type;
-
-        std::string rest;
-        std::getline(lss, rest);
-        std::istringstream rss(rest);
-
-        rss >> r.mount >> r.fstype;
-        if (r.mount == "-") r.mount = "";
-        if (r.fstype == "-") r.fstype = "";
-
+        r.device = disk_row.device;
+        r.size = disk_row.size;
+        r.type = disk_row.type;
+        r.mount = disk_row.mount;
+        r.fstype = disk_row.fstype;
         r.status = checkFilesystem(r.device, r.fstype);
 
         printDriveRow(idx, r);
@@ -214,8 +201,6 @@ std::string ListDrivesUtil::listDrives(bool input_mode) {
         LOG_ERROR("No drives found");
         return "";
     }
-
-    // g_last_drives = drives;
 
     drive_cache.rows = rows;
 
