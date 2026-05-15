@@ -1,45 +1,38 @@
-# Compiler
 CXX := g++
 
-# Directories
 SRC_DIR := src
 INC_DIR := include
 INC_DIR_UI := include/ui
 INC_DIR_UTILS := include/utils
 
+BUILD_DIR := build
 
-# Output binary
 TARGET := DMgr_CLI
 
-# Flags
 CXXFLAGS := -std=c++17 -I$(INC_DIR) -I$(INC_DIR_UI) -I$(INC_DIR_UTILS)
 LDFLAGS := -flto -s -O2 -lssl -lcrypto
 
-# Source and object files
-SRCS := $(wildcard $(SRC_DIR)/*.cpp)
-SRCS_2 := $(wildcard $(SRC_DIR)/ui/*.cpp)
-SRCS_3 := $(wildcard $(SRC_DIR)/utils/*.cpp)
+SRCS := $(wildcard $(SRC_DIR)/*.cpp) \
+        $(wildcard $(SRC_DIR)/ui/*.cpp) \
+        $(wildcard $(SRC_DIR)/utils/*.cpp)
 
-# OBJS := $(patsubst %.cpp,$(BUILD_DIR)/%.o,$(notdir $(SRCS) $(SRCS_2) $(SRCS_3)))
-OBJS := $(SRCS:.cpp=.o, SRCS_2:.cpp=.o, SRCS_3:.cpp=.o)
-# OBJS := $(SRCS:.cpp=.o)
+OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
 
-# Default rule
 all: $(TARGET)
 
-# Link final binary
 $(TARGET): $(OBJS)
-	$(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
-	@rm -f $(OBJS)
+    $(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
 
-# Compile each .cpp into .o
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+# Create build directory if missing
+$(BUILD_DIR):
+    mkdir -p $(BUILD_DIR)
 
-# Clean
+# Compile rule
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
+    $(CXX) $(CXXFLAGS) -c $< -o $@
+
 clean:
-	rm -f $(OBJS) $(TARGET)
+    rm -rf $(BUILD_DIR) $(TARGET)
 
-# Run
 run: all
-	./$(TARGET)
+    ./$(TARGET)
