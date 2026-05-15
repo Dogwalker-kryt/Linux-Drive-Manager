@@ -21,15 +21,13 @@ OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-        $(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
+    $(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
 
-# Create build directory if missing
 $(BUILD_DIR):
-        mkdir -p $(BUILD_DIR)
+    mkdir -p $(BUILD_DIR)
 
-# Compile rule
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
-        $(CXX) $(CXXFLAGS) -c $< -o $@
+    $(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
         rm -rf $(BUILD_DIR) $(TARGET)
