@@ -21,7 +21,7 @@ OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-    $(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
+        $(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
 
 # Create build directory if missing
 $(BUILD_DIR):
