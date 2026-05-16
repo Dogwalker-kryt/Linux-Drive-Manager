@@ -119,7 +119,7 @@ Every command has a normal name and a shortend abstract version
 | --version, -v				| Prints the current version of the Dmgr 		|
 | --help, -h				| Prints the printusage for all CLI commands	|
 | --dry-run, -n				| Disables the execution of commads through the exec_cmd.h api in the current session |
-| --no-color, -c			| Disables the use of colors in the current session |
+| --no-color, -nc			| Disables the use of colors in the current session |
 | --no-log, -nl				| Disables loggin in the current session |
 | --debug, -d				| Enables that debug_msg() functions are printed and enables the usage of the Test option in the current session |
 | --info, -i				| Show Dmgr info |
@@ -203,6 +203,7 @@ If you choose ``` y ``` then you finished the installtion and the Dmgr is ready 
 
 
 **Create data and move files**
+
 Move the files in the right dirs: 
 - config.conf -> data/
 - log.dat -> data/
@@ -246,7 +247,15 @@ Here are the following choices:
 
 ### 1st python script
 
-**In development!!!!**
+- If you dont want to loose your color theme and other config file values, consider backing it up.
+
+**then**
+
+- in the install script choose ```uninstall```
+
+**after this**
+
+- get the new version and use the install script 
 
 
 ### 2nd Manual
@@ -272,7 +281,7 @@ The recommended terminal hight and width are:
 - hight : 40
 - width : 120
 
-when not using the min recommended hight and width, this can lead to corrupted text prints
+when not using the min recommended hight and width, this can lead to corrupted ASCII prints
 
 Start by running the program (root required for some features):
 
@@ -305,7 +314,7 @@ When started, you'll see a menu, for example:
  └─────────────────────────────────────┘
 ```
 
-Navigate by using the Arrow Key's (in main menu only) to the desired action. The tool will prompt you for additional information (drive number, confirm, etc).  
+Navigate by using the Arrow Key's to the desired action. The tool will prompt you for additional information (drive, confirm, etc).  
 For dangerous actions, an extra key (e.g., generated security key) is required as a safety confirmation.
 
 ---
@@ -400,4 +409,4 @@ If you found an issue that is presistent after restarting the Application, pleas
 
 ## Do you like the Application?
 
-**if you like the Drive Manager Utility, please leave a star**
+**if you like it, please leave a star :)**
