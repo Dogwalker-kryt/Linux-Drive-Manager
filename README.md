@@ -277,11 +277,11 @@ If this is done then swap the config file with you backed up version
 
 ## Usage
 
-The recommended terminal hight and width are:
-- hight : 40
-- width : 120
+The recommended terminal minimum hight and width are:
+- hight : 25
+- width : 110
 
-when not using the min recommended hight and width, this can lead to corrupted ASCII prints
+when not using the min recommended hight and width, this can lead to corrupted ASCII prints 
 
 Start by running the program (root required for some features):
 
