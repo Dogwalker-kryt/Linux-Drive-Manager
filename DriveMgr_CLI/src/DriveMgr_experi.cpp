@@ -19,8 +19,7 @@
 // ! Warning this version is the experimental version of the program,
 // This version has the latest and newest functions, but may contain bugs and errors
 // Current version of this code is in the VERSION macro below and in the line bellow
-// v0.9.28.68_dev
-
+// v0.9.28.69
 // C++ libraries
 #include <regex>
 #include <cstdint>
@@ -35,11 +34,10 @@
 #include "../include/ui/MenuIO.hpp"
 #include "../include/ui/Spinner.hpp"
 #include "../include/ui/ListDrivesUtil.hpp"
-
-// ==================== definitions ====================
+#include "../include/ui/TerminalSize.hpp"
 
 // ==== Version ====
-#define VERSION std::string("v0.9.28.68_dev")
+#define VERSION std::string("v0.9.28.69")
 
 // ========== Partition Management ========== 
 
@@ -392,21 +390,31 @@ void listpartisions() {
 
 
 // ========== Disk Space Analysis ==========··−·
- 
+
 void analyzeDiskSpace() {
     std::cout << "[Analyze Disk Space]\n";
     const std::string drive_name = ListDrivesUtil::listDrives(true); 
 
-    std::cout  << Globals::g_THEME_COLOR << "\n------ Disk Information ------\n" << RESET;
+    std::cout  << (Globals::g_no_color ? BOLD : Globals::g_THEME_COLOR) << "\n┌────── Disk Information ──────\n" << RESET;
 
     std::string disk_cmd = "lsblk -b -o NAME,SIZE,TYPE,MOUNTPOINT -n -p " + drive_name;
-    const auto disk_cmd_res = EXEC(disk_cmd); 
+    const auto disk_cmd_res = EXEC_QUIET(disk_cmd); 
 
     if (!disk_cmd_res.success || disk_cmd_res.output.empty()) {
 
         ERR(ErrorCode::ProcessFailure, "lsblk failed");
         return;
 
+    }
+
+    {
+        std::istringstream iss(disk_cmd_res.output);
+        std::string line;
+
+        while (std::getline(iss, line)) {
+            std::cout << "│ " << line << "\n";
+        }
+        std::cout << "│\n";
     }
 
     std::istringstream iss(disk_cmd_res.output);
@@ -428,7 +436,7 @@ void analyzeDiskSpace() {
 
         if (type == "disk") {
             found = true;
-            std::cout << "Device:      " << name << "\n";
+            std::cout << "│ Device:      " << name << "\n";
             try {
 
                 unsigned long long bytes = std::stoull(size);
@@ -441,14 +449,14 @@ void analyzeDiskSpace() {
                     ++unit;
                 }
 
-                std::cout << "Size:        " << human_size << " " << units[unit] << "\n";
+                std::cout << "│ Size:        " << human_size << " " << units[unit] << "\n";
 
             } catch (...) {
-                std::cout << "Size:        " << size << " bytes\n";
+                std::cout << "│ Size:        " << size << " bytes\n";
             }
 
-            std::cout << "Type:        " << type << "\n";
-            std::cout << "Mountpoint:  " << (mount_point.empty() ? "-" : mount_point) << "\n";
+            std::cout << "│ Type:        " << type << "\n";
+            std::cout << "│ Mountpoint:  " << (mount_point.empty() ? "-" : mount_point) << "\n";
         }
     }
 
@@ -470,10 +478,10 @@ void analyzeDiskSpace() {
         std::string filesystem, df_size, used, avail, usep, mnt;
         dfiss >> filesystem >> df_size >> used >> avail >> usep >> mnt;
 
-        std::cout << "\n";
-        std::cout << "Used:        " << used << "\n";
-        std::cout << "Available:   " << avail << "\n";
-        std::cout << "Used %:      " << usep << "\n";
+        std::cout << "│\n";
+        std::cout << "│ Used:        " << used << "\n";
+        std::cout << "│ Available:   " << avail << "\n";
+        std::cout << "│ Used %:      " << usep << "\n";
 
     } else {
 
@@ -481,7 +489,7 @@ void analyzeDiskSpace() {
 
     }
     
-    std::cout << Globals::g_THEME_COLOR << "------------------------------\n" << RESET;
+    std::cout << (Globals::g_no_color ? BOLD : Globals::g_THEME_COLOR) << "└──────────────────────────────\n" << RESET;
 }
 
 
@@ -2596,16 +2604,16 @@ public:
 
 static void Info() {
     int setw_for_version;
-    if (VERSION.find_last_of("_dev")) { setw_for_version = 98; } else { setw_for_version = 102; }
-    std::cout << "\n┌────────────────────────────────────────────────────────" << BOLD << " Info " << RESET << "────────────────────────────────────────────────────────┐\n";
-    std::cout << "│ Welcome to Linux Drive Manager (DMgr / LDM) — a program for Linux to view and operate your storage devices." <<                   std::setw(14) << "│\n"; 
-    std::cout << "│ Warning! You should know the basics about drives so you don't lose any data." <<                                                  std::setw(45) << "│\n";
-    std::cout << "│ If you find problems or have ideas, visit the GitHub page and open an issue." <<                                                  std::setw(45) << "│\n";
-    std::cout << "│ " << BOLD << "Other info:" << RESET <<                                                                                           std::setw(110) << "│\n";
-    std::cout << "│ Version: " << BOLD << VERSION << RESET <<                                                                           std::setw(setw_for_version) << "│\n";
-    std::cout << "│ Github: " << BOLD << "https://github.com/Dogwalker-kryt/Linux-Drive-Manager" << RESET <<                                          std::setw(60) << "│\n";
-    std::cout << "│ Author: " << BOLD << "Dogwalker-kryt" << RESET <<                                                                                 std::setw(99) << "│\n";
-    std::cout << "└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘\n";
+    if (VERSION.find_last_of("_dev")) { setw_for_version = 88; } else { setw_for_version = 92; }
+    std::cout << "\n┌───────────────────────────────────────────────────" << BOLD << " Info " << RESET << "───────────────────────────────────────────────────┐\n";
+    std::cout << "│ Welcome to Linux Drive Manager (DMgr / LDM) — a program for Linux to view and operate your storage devices." <<                          "│\n"; 
+    std::cout << "│ Warning! You should know the basics about drives so you don't lose any data." <<                                        std::setw(35) << "│\n";
+    std::cout << "│ If you find problems or have ideas, visit the GitHub page and open an issue." <<                                        std::setw(35) << "│\n";
+    std::cout << "│ " << BOLD << "Other info:" << RESET <<                                                                                 std::setw(100) << "│\n";
+    std::cout << "│ Version: " << BOLD << VERSION << RESET <<                                                                 std::setw(setw_for_version) << "│\n";
+    std::cout << "│ Github: " << BOLD << "https://github.com/Dogwalker-kryt/Linux-Drive-Manager" << RESET <<                                std::setw(50) << "│\n";
+    std::cout << "│ Author: " << BOLD << "Dogwalker-kryt" << RESET <<                                                                       std::setw(89) << "│\n";
+    std::cout << "└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘\n";
 }
 
 static void printUsage(const char* progname) {

@@ -232,13 +232,6 @@ public:
 };
 
 
-// ==================== Runtime error and TUI components ====================
-
-/**
- * @brief VERY IMPORTANT FOR TUI TO FUNCTION (DONT DELETE)
- */
-// extern struct termios oldt, newt;
-
 // ==================== Signatures for Recovery ====================
 
 /**
